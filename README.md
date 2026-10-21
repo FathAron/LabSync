@@ -1,78 +1,62 @@
-# 📱 LabSync - Aplikasi Manajemen Presensi Praktikum
-> **Sprint 1: Antarmuka dan Alur Praktikum (2 Sudut Pandang: Asisten & Praktikan)**
+# 📱 LabSync - Repository Proyek (Sprint 1)
+> **Sistem Manajemen Presensi Praktikum Laboratorium**  
+> **Role:** Project Manager  
+> **Target Pengembang:** Tim Programmer  
 
-LabSync adalah aplikasi mobile (*cross-platform* React Native / Expo) yang dirancang untuk memudahkan manajemen kehadiran dan absensi praktikum laboratorium. Aplikasi ini memungkinkan kolaborasi mulus antara **Asisten Praktikum (Asprak)** dan **Praktikan (Mahasiswa)** dengan antarmuka yang modern, responsif, dan berbasis *Flexbox*.
-
----
-
-## 🎯 Fokus & Kebutuhan Sprint 1
-
-Pada sprint ini, fokus utama adalah membangun antarmuka dan interaksi yang dapat mendemonstrasikan alur lengkap presensi praktikum tanpa ketergantungan database eksternal (*in-memory state management*):
-
-1. **Jadwal dan Detail Sesi**:
-   - Menampilkan daftar jadwal praktikum lengkap dengan nama mata kuliah, kelas, ruangan, waktu, asisten penanggung jawab, dan status sesi.
-2. **Pengelolaan Sesi (Sudut Pandang Asisten)**:
-   - Asisten dapat **Membuka Sesi** ketika praktikum dimulai.
-   - Asisten dapat memantau kehadiran mahasiswa secara *live*.
-   - Asisten dapat **Menutup Sesi** saat praktikum selesai.
-3. **Pencatatan Presensi (Sudut Pandang Praktikan)**:
-   - Praktikan hanya dapat melakukan presensi saat status sesi **Aktif / Dibuka**.
-   - Sistem mencatat waktu kehadiran secara otomatis dan memberikan umpan balik (feedback) sukses.
-   - **Validasi Anti-Duplikasi**: Praktikan yang sama **tidak dapat melakukan presensi 2 kali** pada sesi yang sama.
-4. **Rekap Sederhana**:
-   - **Asisten**: Dapat melihat modal/bottom sheet daftar mahasiswa yang sudah presensi beserta jam kehadiran dan catatan meja.
-   - **Praktikan**: Dapat melihat riwayat sesi praktikum yang telah dihadirinya sendiri.
-5. **Interaktivitas & UX**:
-   - Menggunakan Form input, Bottom Sheet/Modal konfirmasi, serta banner notifikasi toast.
-   - Penanganan berbagai kondisi: *empty state* (daftar kosong), sesi belum dibuka, sesi aktif, dan sesi ditutup.
-   - Tersedia tombol **Role Switcher** & **User Selector** di *header* untuk mempermudah demonstrasi.
+Selamat datang di repositori **LabSync**. Repositori ini telah disiapkan oleh Project Manager untuk pengerjaan **Sprint 1: Antarmuka dan Alur Praktikum (2 Sudut Pandang: Asisten & Praktikan)**.
 
 ---
 
-## 🏗️ Struktur Arsitektur Proyek
+## 🎯 Target Utama Sprint 1
 
-```text
-LabSync/
-├── App.js                      # Root application entry point & layout
-├── app.json                    # Konfigurasi Expo & metadata aplikasi
-├── package.json                # Dependensi proyek
-├── src/
-│   ├── components/             # Reusable UI components
-│   │   ├── AttendanceModal.js         # Modal/Bottom Sheet formulir presensi praktikan
-│   │   ├── AttendanceSummaryModal.js  # Modal rekapitulasi kehadiran untuk asisten
-│   │   ├── EmptyState.js              # Tampilan saat data kosong / belum ada aksi
-│   │   ├── Header.js                  # App bar, Role Switcher & Persona Selector
-│   │   ├── SessionControlModal.js     # Modal konfirmasi buka & tutup sesi
-│   │   └── StatCard.js                # Kartu indikator metrik/statistik
-│   ├── context/
-│   │   └── AppContext.js       # Centralized state management (Role, Sessions, Attendance)
-│   ├── data/
-│   │   └── mockData.js         # Dummy data (Mahasiswa, Asisten, Sesi, Riwayat)
-│   ├── screens/
-│   │   ├── AssistantView.js    # Dashboard sudut pandang Asisten Praktikum
-│   │   └── StudentView.js      # Dashboard sudut pandang Praktikan (Mahasiswa)
-│   └── styles/
-│       └── theme.js            # Design tokens (Palette, Spacing, Radius, Shadow)
-```
+Pada sprint ini, tim pengembang ditugaskan untuk membangun antarmuka dan interaksi aplikasi yang dapat **mendemonstrasikan alur lengkap presensi praktikum**:
+1. **Asisten** membuka sesi praktikum.
+2. **Praktikan** melihat jadwal & melakukan presensi mandiri saat sesi dibuka.
+3. **Sistem** mencegah presensi ganda (mahasiswa yang sama tidak dapat presensi 2x pada sesi yang sama).
+4. **Asisten** memantau rekap kehadiran mahasiswa secara *real-time*.
+5. **Asisten** menutup sesi praktikum setelah selesai.
+6. **Praktikan** dapat melihat riwayat kehadiran pribadinya.
+
+> ⚠️ **Catatan Penting**: Karena belum ada database eksternal, data dikelola menggunakan *local state* selama aplikasi berjalan (*in-memory*). Data tidak perlu tersinkronisasi lintas jaringan; pergantian peran dilakukan melalui tombol **Role Switcher** di antarmuka.
 
 ---
 
-## 🚀 Cara Menjalankan Aplikasi
+## 📚 Dokumen Spesifikasi Kebutuhan & Tugas (Wajib Dibaca)
 
-Aplikasi dapat dijalankan di perangkat mobile (Android/iOS) melalui **Expo Go**, maupun langsung di **Web Browser** di laptop/komputer.
+Seluruh programmer diharapkan membaca dokumen acuan berikut sebelum menulis kode:
 
-### 1. Instalasi Dependensi (jika baru di-clone)
+1. 📄 **[Software Requirements Specification (SRS) Sprint 1](file:///d:/PPK/LabSync/docs/SRS_SPRINT_1.md)**
+   - Berisi spesifikasi kebutuhan fungsional (SRS-F01 s/d SRS-F07), non-fungsional, user stories, dan acceptance criteria.
+2. 📋 **[Pembagian Tugas Programmer (Task Breakdown)](file:///d:/PPK/LabSync/docs/TASK_BREAKDOWN_DEVELOPER.md)**
+   - Berisi pembagian tiket kerja (TASK-01 s/d TASK-05) beserta deskripsi tugas dan Definition of Done (DoD).
+
+---
+
+## 🛠️ Tech Stack & Konfigurasi
+
+- **Framework**: React Native (Expo SDK 58)
+- **Multiplatform**: Mobile (Android/iOS via Expo Go) & Web Preview (`react-native-web`)
+- **Tata Letak**: Murni menggunakan **Flexbox** dan StyleSheet bawaan React Native
+- **State Management**: React Context API / useState / Zustand (bebas disepakati tim)
+
+---
+
+## 💻 Panduan Menjalankan Repositori bagi Programmer
+
+### 1. Clone & Pasang Dependensi
 ```bash
+git clone https://github.com/FathAron/LabSync.git
+cd LabSync
 npm install
 ```
 
-### 2. Menjalankan di Web Browser (Rekomendasi untuk Demo di Laptop)
+### 2. Menjalankan di Web Browser (Cepat & Ringan)
 ```bash
 npm run web
 # atau
 npx expo start --web
 ```
-Buka browser di alamat `http://localhost:8081`. Tampilan sudah diatur agar otomatis responsif dan memiliki tata letak mobile yang rapi.
+Buka `http://localhost:8081` di browser.
 
 ### 3. Menjalankan di Smartphone (Expo Go)
 ```bash
@@ -80,71 +64,30 @@ npm start
 # atau
 npx expo start
 ```
-- Buka aplikasi **Expo Go** di Android (Scan QR code dari terminal).
-- Untuk iOS, scan menggunakan aplikasi Kamera bawaan.
+Scan QR code menggunakan aplikasi **Expo Go** di Android atau kamera di iOS.
+
+### 4. Diagnosa & Validasi Dependensi
+Sebelum melakukan *commit*, jalankan perintah ini untuk memastikan tidak ada konflik pustaka:
+```bash
+npx expo-doctor
+```
 
 ---
 
-## 🎬 Skenario Demonstrasi Sprint 1
+## 🌿 Aturan Git Branching untuk Rekan Programmer
 
-Gunakan langkah-langkah berikut saat mendemonstrasikan aplikasi kepada dosen/penguji:
+Agar pengerjaan tidak saling bentrok (*merge conflict*), gunakan konvensi nama cabang (*branch*) berikut:
 
-### Tahap 1: Asisten Membuka Sesi Praktikum
-1. Pastikan tab di header berada pada **"🛡️ Sudut Pandang Asisten"**.
-2. Perhatikan sesi **"Pemrograman Perangkat Bergerak (IF-45-02)"** yang berstatus `⏳ Belum Dibuka`.
-3. Klik tombol **"🚀 Buka Sesi Praktikum"**.
-4. Muncul modal konfirmasi; klik **"✓ Ya, Buka Sesi"**.
-5. Status sesi berubah menjadi `🟢 Sesi Aktif` dengan penanda waktu dibuka.
+- `feat/task-01-mock-state` : Pengerjaan Task 1 (Mock data & State Store)
+- `feat/task-02-app-shell` : Pengerjaan Task 2 (Header & Role Switcher)
+- `feat/task-03-assistant-module` : Pengerjaan Task 3 (Modul & Rekap Asisten)
+- `feat/task-04-student-module` : Pengerjaan Task 4 (Modul Presensi Praktikan)
+- `feat/task-05-ui-polish` : Pengerjaan Task 5 (Modal, Toast & Responsive Polish)
 
-### Tahap 2: Praktikan Melakukan Presensi
-1. Beralih ke **"🎓 Sudut Pandang Praktikan"** melalui tombol di header.
-2. Identitas aktif secara *default* adalah **Fath Aron (1301210045)**.
-3. Sesi "Pemrograman Perangkat Bergerak" kini memiliki tombol aktif **"📝 Lakukan Presensi Sekarang"**.
-4. Klik tombol tersebut untuk membuka Bottom Sheet presensi.
-5. Klik **"✓ Simpan Presensi"**.
-6. Muncul toast notifikasi sukses dan kartu sesi berubah menjadi warna hijau bertuliskan **"✓ Sudah Presensi"** beserta catatan jam kehadiran.
-
-### Tahap 3: Uji Coba Pencegahan Presensi Ganda
-1. Pada sesi yang sama, coba perhatikan tombol aksi. Tombol telah digantikan oleh kotak konfirmasi dan terkunci.
-2. Praktikan tidak dapat mengirimkan presensi kedua kalinya.
-
-### Tahap 4: Praktikan Melihat Riwayat Pribadi
-1. Pada sudut pandang praktikan, klik tab **"📋 Riwayat Presensi"**.
-2. Terlihat riwayat presensi yang baru saja dicatat beserta sesi yang pernah diikuti sebelumnya.
-
-### Tahap 5: Asisten Memantau Rekap Kehadiran
-1. Beralih kembali ke **"🛡️ Sudut Pandang Asisten"**.
-2. Pada sesi "Pemrograman Perangkat Bergerak", klik tombol **"📊 Rekap Presensi"**.
-3. Terlihat nama praktikan (Fath Aron) telah masuk ke daftar hadir secara *real-time* lengkap dengan waktu hadir dan posisi mejanya.
-
-### Tahap 6: Asisten Menutup Sesi Praktikum
-1. Klik tombol **"🛑 Tutup Sesi"**.
-2. Muncul modal konfirmasi penutupan sesi; klik **"✕ Ya, Tutup Sesi"**.
-3. Status sesi berubah menjadi `🔒 Sesi Ditutup`.
-4. Jika beralih kembali ke Praktikan, sesi tersebut sudah terkunci dan tidak dapat menerima presensi lagi.
-
-> 💡 **Tip Presentasi**: Gunakan tombol **"🔄 Reset Demo"** di pojok kanan atas kapan saja untuk mengembalikan seluruh data ke kondisi awal saat ingin mengulang presentasi.
+Semua pull request atau commit wajib dicek terhadap checklist pada [TASK_BREAKDOWN_DEVELOPER.md](file:///d:/PPK/LabSync/docs/TASK_BREAKDOWN_DEVELOPER.md).
 
 ---
 
-## ✅ Checklist Kebutuhan Sprint 1
-
-| Kebutuhan / Fitur | Status | Keterangan |
-| :--- | :---: | :--- |
-| **Jadwal & Detail Sesi** | ✅ Selesai | Mata kuliah, modul, kelas, ruangan, waktu, status sesi |
-| **Buka Sesi (Asisten)** | ✅ Selesai | Mengubah status dari `PENDING` ke `ACTIVE`, catat jam buka |
-| **Tutup Sesi (Asisten)** | ✅ Selesai | Mengubah status ke `CLOSED`, mengunci presensi baru |
-| **Presensi Mandiri (Praktikan)** | ✅ Selesai | Form input, feedback toast, pencatatan waktu otomatis |
-| **Validasi Anti-Duplikasi** | ✅ Selesai | Praktikan tidak bisa absen 2x pada sesi yang sama |
-| **Rekap Asisten** | ✅ Selesai | Modal rekap mahasiswa hadir, total kehadiran, persentase |
-| **Catatan Kehadiran Praktikan** | ✅ Selesai | Tab riwayat kehadiran pribadi mahasiswa |
-| **Interaksi Modal & Sheet** | ✅ Selesai | Modal buka/tutup sesi, form presensi, modal rekap |
-| **Empty State & Variasi Status**| ✅ Selesai | Tampilan khusus saat daftar kosong, sesi pending, sesi closed |
-| **Tata Letak Flexbox & Responsif** | ✅ Selesai | Menggunakan flexbox murni, rapi di HP & Web |
-| **Peralihan Peran Mudah** | ✅ Selesai | Switcher Asisten vs Praktikan + Persona Selector di header |
-
----
-
-## 👥 Tim Pengembang
-- **Role**: Project Manager & Pengembang
-- **Mata Kuliah**: Pemrograman Perangkat Bergerak / Komputer (PPK)
+## 👥 Tim Proyek
+- **Project Manager**: Fath Aron
+- **Tim Pengembang**: Rekan-rekan Programmer (PPK)
