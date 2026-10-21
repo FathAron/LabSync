@@ -74,20 +74,27 @@ npx expo-doctor
 
 ---
 
-## 🌿 Aturan Git Branching untuk Rekan Programmer
+## 🌿 Aturan Git Branching Tim Programmer
 
-Agar pengerjaan tidak saling bentrok (*merge conflict*), gunakan konvensi nama cabang (*branch*) berikut:
+Agar pengerjaan tidak saling bentrok (*merge conflict*), setiap programmer bekerja di cabang (*branch*) masing-masing:
 
-- `feat/task-01-mock-state` : Pengerjaan Task 1 (Mock data & State Store)
-- `feat/task-02-app-shell` : Pengerjaan Task 2 (Header & Role Switcher)
-- `feat/task-03-assistant-module` : Pengerjaan Task 3 (Modul & Rekap Asisten)
-- `feat/task-04-student-module` : Pengerjaan Task 4 (Modul Presensi Praktikan)
-- `feat/task-05-ui-polish` : Pengerjaan Task 5 (Modal, Toast & Responsive Polish)
+- **ARON SORIMUDA JOHANES PASARIBU**:
+  - `feat/aron-state-mock` : Pengerjaan TASK-01 (Mock data & Central Context Store)
+  - `feat/aron-app-shell` : Pengerjaan TASK-02 (Header, Role Switcher & Persona Selector)
+- **ADELIA CLEARESTA**:
+  - `feat/adelia-student-module` : Pengerjaan TASK-04 (Jadwal Praktikan, Modal Presensi & Riwayat Kehadiran)
+- **WIPIN SAPUTRA POH**:
+  - `feat/wipin-assistant-module` : Pengerjaan TASK-03 (Sesi Asisten, Buka/Tutup Sesi & Rekapitulasi)
+  - `feat/wipin-ui-components` : Pengerjaan TASK-05 (Modal, Empty State & Polish Flexbox)
 
-Semua pull request atau commit wajib dicek terhadap checklist pada [TASK_BREAKDOWN_DEVELOPER.md](file:///d:/PPK/LabSync/docs/TASK_BREAKDOWN_DEVELOPER.md).
+Semua pull request wajib dicek terhadap checklist pada [TASK_BREAKDOWN_DEVELOPER.md](file:///d:/PPK/LabSync/docs/TASK_BREAKDOWN_DEVELOPER.md).
 
 ---
 
 ## 👥 Tim Proyek
-- **Project Manager**: Fath Aron
-- **Tim Pengembang**: Rekan-rekan Programmer (PPK)
+- **Project Manager**: Naufal Dwi Yusmawan
+- **Tim Programmer**:
+  1. **ADELIA CLEARESTA** (PIC: Modul Praktikan & Presensi)
+  2. **ARON SORIMUDA JOHANES PASARIBU** (PIC: State Architecture & Shell Navigasi)
+  3. **WIPIN SAPUTRA POH** (PIC: Modul Asisten & Rekapitulasi)
+- **Mata Kuliah**: Pemrograman Perangkat Bergerak / Komputer (PPK)

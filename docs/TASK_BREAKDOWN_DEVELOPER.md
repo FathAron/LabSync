@@ -7,21 +7,22 @@ Dokumen ini membagi spesifikasi kebutuhan Sprint 1 menjadi tiket kerja (*actiona
 
 ---
 
-## 📌 Rangkuman Pembagian Tugas
+## 📌 Rangkuman Pembagian Tugas Tim Programmer
+
+| Nama Programmer | Peran Utama | Penugasan Tiket | Lingkup Modul |
+| :--- | :--- | :--- | :--- |
+| **ADELIA CLEARESTA** | Programmer Praktikan | **TASK-04** | Modul Jadwal Mahasiswa, Form Presensi, Validasi Anti-Duplikasi & Riwayat Pribadi |
+| **ARON SORIMUDA JOHANES PASARIBU** | Programmer Core & Shell | **TASK-01**, **TASK-02** | Mock Data, Central State Store (Context), Header, Role Switcher & Persona Selector |
+| **WIPIN SAPUTRA POH** | Programmer Asisten & Rekap | **TASK-03**, **TASK-05** | Modul Sesi Asisten, Kontrol Buka/Tutup Sesi, Rekap Realtime, Empty State & Styling Tokens |
 
 ```
-                                  [ PROJECT MANAGER ]
-                                           │
-         ┌──────────────────┬──────────────┴─────┬──────────────────┐
-         ▼                  ▼                    ▼                  ▼
-    [ TASK 01 ]        [ TASK 02 ]          [ TASK 03 ]        [ TASK 04 ]
-  State & Mock Data   App Shell & Nav     Modul Asisten      Modul Praktikan
-   (Context / Store)   (Role Switcher)     (Lifecycle Sesi)  (Presensi & Riwayat)
-         │                  │                    │                  │
-         └──────────────────┼────────────────────┴──────────────────┘
-                            ▼
-                       [ TASK 05 ]
-                 Common UI, Modal & Polish
+                              [ PROJECT MANAGER: Naufal Dwi Yusmawan ]
+                                                 │
+         ┌───────────────────────────────────────┼───────────────────────────────────────┐
+         ▼                                       ▼                                       ▼
+  [ ARON S. J. PASARIBU ]              [ ADELIA CLEARESTA ]                      [ WIPIN SAPUTRA POH ]
+   TASK-01 & TASK-02                        TASK-04                               TASK-03 & TASK-05
+  State, Data & Shell Switcher       Modul Praktikan & Presensi             Modul Asisten, Rekap & Tokens
 ```
 
 ---
@@ -29,6 +30,7 @@ Dokumen ini membagi spesifikasi kebutuhan Sprint 1 menjadi tiket kerja (*actiona
 ## 🎫 Tiket Rinci Pekerjaan Programmer
 
 ### 🔹 TASK-01: State Management & Mock Data Setup
+- **Penanggung Jawab**: 👤 **ARON SORIMUDA JOHANES PASARIBU**
 - **Kategori**: Core / State Architecture
 - **Referensi SRS**: SRS-F01, SRS-F02, SRS-F03, SRS-F04
 - **Deskripsi Tugas**:
@@ -54,6 +56,7 @@ Dokumen ini membagi spesifikasi kebutuhan Sprint 1 menjadi tiket kerja (*actiona
 ---
 
 ### 🔹 TASK-02: App Shell, Navigation & Role Switcher
+- **Penanggung Jawab**: 👤 **ARON SORIMUDA JOHANES PASARIBU**
 - **Kategori**: UI / Navigation
 - **Referensi SRS**: SRS-F07, SRS-NF01
 - **Deskripsi Tugas**:
@@ -72,6 +75,7 @@ Dokumen ini membagi spesifikasi kebutuhan Sprint 1 menjadi tiket kerja (*actiona
 ---
 
 ### 🔹 TASK-03: Modul Antarmuka Asisten Praktikum
+- **Penanggung Jawab**: 👤 **WIPIN SAPUTRA POH**
 - **Kategori**: Feature / Assistant Flow
 - **Referensi SRS**: SRS-F01, SRS-F02, SRS-F05
 - **Deskripsi Tugas**:
@@ -96,6 +100,7 @@ Dokumen ini membagi spesifikasi kebutuhan Sprint 1 menjadi tiket kerja (*actiona
 ---
 
 ### 🔹 TASK-04: Modul Antarmuka Praktikan (Mahasiswa)
+- **Penanggung Jawab**: 👤 **ADELIA CLEARESTA**
 - **Kategori**: Feature / Student Flow
 - **Referensi SRS**: SRS-F01, SRS-F03, SRS-F04, SRS-F06
 - **Deskripsi Tugas**:
@@ -125,6 +130,7 @@ Dokumen ini membagi spesifikasi kebutuhan Sprint 1 menjadi tiket kerja (*actiona
 ---
 
 ### 🔹 TASK-05: Komponen Pendukung, Feedback UI & Polish Responsivitas
+- **Penanggung Jawab**: 👤 **WIPIN SAPUTRA POH**
 - **Kategori**: UI / UX Components & QA
 - **Referensi SRS**: SRS-NF01, SRS-NF02, SRS-NF03
 - **Deskripsi Tugas**:

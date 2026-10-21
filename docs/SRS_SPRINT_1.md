@@ -140,17 +140,68 @@ Membangun antarmuka (*user interface*), navigasi, dan interaksi yang dapat mende
 
 ---
 
-## 5. Rencana Pembagian Tugas Programmer (Sprint Backlog Allocation)
+## 5. Pembagian Tugas Programmer (Developer Assignment)
 
-Tim programmer dapat membagi pengerjaan menjadi 4 modul utama:
+Untuk memastikan pengerjaan Sprint 1 berjalan terstruktur dan paralel tanpa saling tumpang tindih (*blocking*), tanggung jawab pengembangan dibagi kepada 3 rekan programmer:
 
-| Task ID | Nama Modul | Tanggung Jawab Utama | Estimasi |
-| :--- | :--- | :--- | :--- |
-| **TASK-01** | **State Management & Mock Data** | Menyiapkan data dummy (mahasiswa, asisten, sesi) dan state terpusat (React Context/Zustand) beserta fungsi mutasi status sesi dan penambahan presensi. | 3 Jam |
-| **TASK-02** | **Navigation & Shell (Header & Role Switcher)** | Membangun layout utama, App Bar, Segmented Role Switcher (Asisten vs Praktikan), dan pemilih identitas akun dummy. | 3 Jam |
-| **TASK-03** | **Modul Asisten Praktikum** | Halaman daftar sesi asisten, kartu sesi responsif, modal konfirmasi buka/tutup sesi, dan modal/layar rekapitulasi kehadiran mahasiswa. | 5 Jam |
-| **TASK-04** | **Modul Praktikan (Mahasiswa)** | Halaman jadwal praktikan, form/bottom sheet presensi, validasi anti-duplikasi presensi ganda, dan tab riwayat kehadiran pribadi. | 5 Jam |
-| **TASK-05** | **UI Polish, Empty States & Review** | Menghubungkan semua state, memastikan styling flexbox responsif, menguji alur demo dari buka sesi hingga rekap, dan merapikan komponen kosong (*empty states*). | 3 Jam |
+### 👤 1. ADELIA CLEARESTA (PIC: Modul Praktikan & Presensi Mandiri)
+**Tanggung Jawab Utama**: Mengembangkan seluruh antarmuka dan alur interaksi dari sudut pandang mahasiswa/praktikan.
+- **Tugas 1 (Tampilan Jadwal Praktikan - `StudentView`)**:
+  - Membangun halaman jadwal sesi praktikum yang disesuaikan dengan kelas mahasiswa.
+  - Menampilkan informasi modul, kelas, ruangan, waktu, asisten pengampu, dan status sesi (`Belum Dibuka`, `Sesi Dibuka`, `Sesi Ditutup`).
+  - Mengatur kondisi tombol presensi: dinonaktifkan jika sesi belum dibuka atau sudah ditutup.
+- **Tugas 2 (Formulir Presensi Mahasiswa - `AttendanceModal` / Bottom Sheet)**:
+  - Membuat modal/bottom sheet input presensi yang memuat informasi mahasiswa (NIM & Nama terisi otomatis) dan detail sesi.
+  - Menambahkan input opsional nomor meja laboratorium (contoh: *Meja Lab A-12*).
+  - Mengintegrasikan tombol simpan presensi yang memicu pencatatan waktu kehadiran ke state.
+- **Tugas 3 (Validasi Anti-Duplikasi Presensi)**:
+  - Menerapkan validasi agar mahasiswa tidak dapat melakukan presensi dua kali pada sesi yang sama.
+  - Mengubah tampilan kartu sesi mahasiswa yang sudah hadir menjadi warna hijau (`✓ Sudah Presensi`) beserta catatan jam hadir, serta mengunci tombol presensi.
+- **Tugas 4 (Riwayat Catatan Kehadiran Pribadi)**:
+  - Membangun tab/layar "Riwayat Presensi" yang menampilkan riwayat seluruh sesi yang telah dihadiri oleh mahasiswa yang bersangkutan.
+  - Menampilkan komponen *Empty State* apabila mahasiswa belum memiliki catatan kehadiran.
+
+---
+
+### 👤 2. ARON SORIMUDA JOHANES PASARIBU (PIC: State Architecture & Shell Navigasi)
+**Tanggung Jawab Utama**: Membangun fondasi state management lokal, data mock, arsitektur shell, dan navigasi peran.
+- **Tugas 1 (Data Model & Mock Data - `mockData.js`)**:
+  - Menyusun struktur data awal (*dummy data*) yang mencakup daftar Asisten, Praktikan (Mahasiswa), Sesi Praktikum, dan catatan awal kehadiran.
+  - Memastikan variasi status awal sesi (ada yang `PENDING`, `ACTIVE`, dan `CLOSED`) untuk keperluan demo.
+- **Tugas 2 (Central State Store - `AppContext.js`)**:
+  - Mengembangkan state terpusat (*in-memory*) menggunakan React Context API.
+  - Mengelola state: `currentRole`, `sessions`, `attendanceList`, `currentAssistant`, dan `currentStudent`.
+  - Mengimplementasikan fungsi mutasi inti:
+    - `openSession(sessionId)`: mengubah status ke `ACTIVE` dan mencatat waktu buka.
+    - `closeSession(sessionId)`: mengubah status ke `CLOSED` dan mencatat waktu tutup.
+    - `recordAttendance(sessionId, student, notes)`: validasi status & anti-duplikasi, lalu menambahkan data presensi.
+    - `hasStudentAttended(sessionId, studentId)`: helper validasi kehadiran praktikan.
+    - `resetDemoData()`: mereset state kembali ke kondisi semula.
+- **Tugas 3 (App Shell & Role Switcher - `Header.js`)**:
+  - Membangun app bar / header dengan brand LabSync (Sprint 1).
+  - Membuat kontrol **Segmented Switcher** untuk beralih instan antara **Sudut Pandang Asisten** dan **Sudut Pandang Praktikan**.
+  - Membuat modal pemilih akun (*Persona Selector*) untuk mengganti identitas asisten/mahasiswa aktif saat simulasi demo.
+- **Tugas 4 (Global Notification System - `FeedbackToast`)**:
+  - Membuat banner notifikasi toast yang otomatis muncul saat presensi berhasil, sesi dibuka, atau sesi ditutup.
+
+---
+
+### 👤 3. WIPIN SAPUTRA POH (PIC: Modul Asisten & Rekap Kehadiran)
+**Tanggung Jawab Utama**: Mengembangkan antarmuka dan alur kontrol dari sudut pandang asisten praktikum serta rekapitulasi data.
+- **Tugas 1 (Dashboard Asisten - `AssistantView`)**:
+  - Membangun tampilan daftar sesi praktikum untuk asisten beserta kartu metrik ringkasan (*Total Sesi Aktif*, *Total Hadir*, *Sesi Selesai*).
+  - Menampilkan progress bar kehadiran praktikan (*X dari Y Mahasiswa Hadir*) pada setiap kartu sesi.
+- **Tugas 2 (Kontrol Buka & Tutup Sesi - `SessionControlModal`)**:
+  - Mengembangkan modal/dialog konfirmasi ketika asisten hendak membuka sesi praktikum.
+  - Mengembangkan modal/dialog konfirmasi penutupan sesi dengan ringkasan jumlah kehadiran akhir sebelum sesi dikunci.
+  - Memastikan perubahan status sesi langsung bereaksi pada antarmuka.
+- **Tugas 3 (Rekapitulasi Kehadiran Realtime - `AttendanceSummaryModal`)**:
+  - Membangun modal/layar rekap presensi per sesi yang menampilkan daftar mahasiswa yang hadir (NIM, Nama, Jam Hadir, Posisi Meja).
+  - Menghitung dan menampilkan persentase tingkat kehadiran kelas secara otomatis.
+  - Menampilkan *Empty State* informatif jika belum ada praktikan yang presensi pada sesi yang sedang dibuka.
+- **Tugas 4 (Design Tokens & Komponen Pendukung - `EmptyState.js`, `StatCard.js`, `theme.js`)**:
+  - Menyiapkan token desain (palet warna, tipografi, radius, shadow) dan komponen *EmptyState* reusable untuk seluruh modul.
+  - Memastikan styling antarmuka asisten responsif berbasis Flexbox di perangkat mobile maupun layar web.
 
 ---
 
