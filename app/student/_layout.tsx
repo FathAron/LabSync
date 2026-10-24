@@ -1,11 +1,4 @@
 // TASK-04 - Layout sudut pandang PRAKTIKAN.
-//
-// Memakai <Tabs> dari Expo Router (materi navigasi): setiap file di folder ini
-// menjadi satu tab.
-//   app/student/index.tsx   -> tab "Sesi Praktikum"   (URL: /student)
-//   app/student/history.tsx -> tab "Riwayat Presensi" (URL: /student/history)
-//
-// Profil praktikan ditaruh di atas Tabs sehingga tampil di kedua tab.
 
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,14 +7,12 @@ import StudentProfileCard from '../../src/features/student/components/StudentPro
 import { CONTENT_MAX_WIDTH, colors, spacing } from '../../src/features/student/studentTokens';
 import { useStudentModule } from '../../src/features/student/useStudentModule';
 
-// Warna tab dari Expo Router bertipe ColorValue (bisa non-string); Ionicons butuh string.
 const toColor = (value: unknown, fallback: string): string =>
   typeof value === 'string' ? value : fallback;
 
 const StudentLayout = () => {
   const { student, mySessions, myRecords, isAttended } = useStudentModule();
 
-  // Badge tab: jumlah sesi yang sedang dibuka dan belum kamu presensi.
   const todo = mySessions.filter((s) => s.status === 'ACTIVE' && !isAttended(s.id)).length;
 
   return (

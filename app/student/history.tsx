@@ -1,7 +1,4 @@
 // TASK-04 - Tab "Riwayat Presensi".
-// Hanya catatan milik praktikan aktif (dicocokkan lewat ID), terbaru dulu.
-// Data dihitung dari state pusat di useStudentModule, jadi catatan baru
-// langsung muncul tanpa memuat ulang.
 
 import { FlatList, StyleSheet, View } from 'react-native';
 import HistoryItem from '../../src/features/student/components/HistoryItem';

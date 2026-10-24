@@ -1,9 +1,4 @@
 // TASK-04 - Tab "Sesi Praktikum".
-//
-// State lokal layar ini (useState) hanya untuk urusan tampilan:
-//   - selectedSessionId : sesi mana yang sedang dibuka di modal presensi
-//   - feedback          : pesan singkat setelah presensi
-// Data sesi & presensi TIDAK disalin ke sini; semuanya dari state pusat.
 
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
@@ -45,7 +40,6 @@ const SessionsScreen = () => {
 
   const selectedSession = mySessions.find((s) => sameId(s.id, selectedSessionId)) ?? null;
 
-  // Feedback hilang sendiri setelah beberapa detik.
   useEffect(() => {
     if (!feedback) return undefined;
     const timer = setTimeout(() => setFeedback(null), FEEDBACK_DURATION_MS);
@@ -55,7 +49,7 @@ const SessionsScreen = () => {
   const showFeedback = useCallback(
     (type: FeedbackType, message: string, withHistoryLink = false) => {
       if (externalNotify) {
-        externalNotify({ type, message }); // pakai toast milik tim jika tersedia
+        externalNotify({ type, message }); 
         return;
       }
       setFeedback({ type, message, withHistoryLink, key: Date.now() });
@@ -63,7 +57,6 @@ const SessionsScreen = () => {
     [externalNotify]
   );
 
-  // Pemeriksaan SEBELUM modal dibuka.
   const handlePressAttend = (session: SessionInfo) => {
     if (!student) {
       showFeedback('error', MESSAGES.missingStudent);
@@ -80,7 +73,6 @@ const SessionsScreen = () => {
     setSelectedSessionId(session.id);
   };
 
-  // Dipanggil AttendanceModal saat "Simpan Presensi" ditekan.
   const handleSubmit = async (notes: string): Promise<SubmitResult> => {
     if (!selectedSession) {
       showFeedback('error', MESSAGES.missingSession);
