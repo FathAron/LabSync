@@ -5,9 +5,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
-  Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -22,6 +20,8 @@ import {
   formatTimeWIB,
 } from '../features/student/studentUtils';
 import { CONTENT_MAX_WIDTH, colors, radius, spacing, theme } from '../styles/theme';
+import SessionControlModal from '../features/assistant/components/SessionControlModal';
+import AttendanceSummaryModal from '../features/assistant/components/AttendanceSummaryModal';
 
 type ConfirmAction = {
   type: 'open' | 'close';
@@ -225,175 +225,31 @@ export const AssistantView = () => {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Modal Konfirmasi Buka / Tutup Sesi */}
-      <Modal
+      {/* Modal konfirmasi sesi — TASK-03 */}
+      <SessionControlModal
         visible={confirmAction !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmAction(null)}
-      >
-        <View style={styles.modalRoot}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setConfirmAction(null)}
-          >
-            <View style={styles.backdrop} />
-          </Pressable>
+        session={confirmAction?.session ?? null}
+        action={confirmAction?.type ?? 'open'}
+        attendanceCount={
+          confirmAction
+            ? getAttendanceForSession(confirmAction.session.id).length
+            : 0
+        }
+        capacity={confirmAction?.session.totalStudents ?? 0}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirm}
+      />
 
-          {confirmAction ? (
-            <View style={styles.confirmCard}>
-              <View
-                style={[
-                  styles.confirmIconCircle,
-                  {
-                    backgroundColor:
-                      confirmAction.type === 'open'
-                        ? colors.successSoft
-                        : colors.dangerSoft,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    confirmAction.type === 'open'
-                      ? 'play-circle-outline'
-                      : 'lock-closed-outline'
-                  }
-                  size={28}
-                  color={
-                    confirmAction.type === 'open' ? colors.success : colors.danger
-                  }
-                />
-              </View>
-
-              <Text style={styles.confirmTitle}>
-                {confirmAction.type === 'open'
-                  ? 'Buka Sesi Praktikum?'
-                  : 'Tutup Sesi Praktikum?'}
-              </Text>
-              <Text style={styles.confirmSubtitle}>
-                {confirmAction.type === 'open'
-                  ? `Mahasiswa kelas ${confirmAction.session.className} akan dapat melakukan presensi mandiri pada sesi "${confirmAction.session.courseName}".`
-                  : `Sesi "${confirmAction.session.courseName}" (${confirmAction.session.className}) akan dikunci dan praktikan tidak dapat mengirim presensi baru.`}
-              </Text>
-
-              <View style={styles.confirmFooter}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setConfirmAction(null)}
-                  style={[styles.btn, styles.btnSecondary]}
-                >
-                  <Text style={styles.btnSecondaryText}>Batal</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={handleConfirm}
-                  style={[
-                    styles.btn,
-                    confirmAction.type === 'open' ? styles.btnSuccess : styles.btnDanger,
-                  ]}
-                >
-                  <Text style={styles.btnPrimaryText}>
-                    {confirmAction.type === 'open' ? 'Ya, Buka Sesi' : 'Ya, Tutup Sesi'}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : null}
-        </View>
-      </Modal>
-
-      {/* Modal Rekapitulasi Kehadiran Realtime */}
-      <Modal
+      {/* Modal rekap presensi — TASK-03 */}
+      <AttendanceSummaryModal
         visible={recapSession !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setRecapSessionId(null)}
-      >
-        <View style={styles.sheetRoot}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setRecapSessionId(null)}
-          >
-            <View style={styles.backdrop} />
-          </Pressable>
-
-          {recapSession ? (
-            <View style={styles.sheetCard}>
-              <View style={styles.sheetHandle} />
-              <View style={styles.sheetHeader}>
-                <View style={{ flex: 1, marginRight: spacing.sm }}>
-                  <Text style={styles.sheetTitle}>Rekap Presensi Sesi</Text>
-                  <Text style={styles.sheetSubtitle}>
-                    {recapSession.courseName} • Kelas {recapSession.className}
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setRecapSessionId(null)}
-                  style={styles.closeCircleBtn}
-                >
-                  <Ionicons name="close" size={20} color={colors.neutralDark} />
-                </Pressable>
-              </View>
-
-              <ScrollView style={styles.recapScroll} showsVerticalScrollIndicator={false}>
-                {recapAttendees.length === 0 ? (
-                  <View style={styles.emptyRecap}>
-                    <Ionicons
-                      name="people-outline"
-                      size={36}
-                      color={colors.textMuted}
-                    />
-                    <Text style={styles.emptyRecapTitle}>
-                      Belum ada praktikan yang melakukan presensi
-                    </Text>
-                    <Text style={styles.emptyRecapSub}>
-                      Data mahasiswa yang melakukan presensi akan otomatis tampil secara
-                      real-time di sini.
-                    </Text>
-                  </View>
-                ) : (
-                  recapAttendees.map((att, idx) => {
-                    const timeStr =
-                      formatTimeWIB(att.timestamp) ?? att.attendedAt ?? '-';
-                    return (
-                      <View key={att.id} style={styles.attendeeItem}>
-                        <View style={styles.attendeeIndex}>
-                          <Text style={styles.attendeeIndexText}>{idx + 1}</Text>
-                        </View>
-                        <View style={styles.attendeeInfo}>
-                          <Text style={styles.attendeeName}>{att.studentName}</Text>
-                          <Text style={styles.attendeeNim}>NIM {att.studentNim}</Text>
-                          {att.notes ? (
-                            <Text style={styles.attendeeNotes}>
-                              Posisi: {att.notes}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <View style={styles.attendeeTimeBadge}>
-                          <Text style={styles.attendeeTimeText}>{timeStr}</Text>
-                        </View>
-                      </View>
-                    );
-                  })
-                )}
-              </ScrollView>
-
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setRecapSessionId(null)}
-                style={[styles.btn, styles.btnPrimary, { marginTop: spacing.md }]}
-              >
-                <Text style={styles.btnPrimaryText}>Tutup Rekap</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-      </Modal>
-    </View>
-  );
-};
+        session={recapSession}
+        records={recapAttendees}
+        onClose={() => setRecapSessionId(null)}
+      />
+          </View>
+        );
+      };
 
 const styles = StyleSheet.create({
   container: {
