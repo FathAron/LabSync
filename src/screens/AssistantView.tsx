@@ -1,0 +1,771 @@
+// TASK-02 / Integrasi Shell - Layar Sudut Pandang Asisten (AssistantView)
+// Terhubung ke AppContext (openSession, closeSession, getAttendanceForSession)
+// untuk memfasilitasi peralihan peran dan pengujian skenario Sprint 1 secara utuh.
+
+import React, { useMemo, useState } from 'react';
+import {
+  FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useApp } from '../context/AppContext';
+import type { Session } from '../data/mockData';
+import {
+  STATUS_META,
+  formatDateID,
+  formatTimeRange,
+  formatTimeWIB,
+} from '../features/student/studentUtils';
+import { CONTENT_MAX_WIDTH, colors, radius, spacing, theme } from '../styles/theme';
+
+type ConfirmAction = {
+  type: 'open' | 'close';
+  session: Session;
+} | null;
+
+export const AssistantView = () => {
+  const {
+    sessions,
+    attendanceList,
+    openSession,
+    closeSession,
+    getAttendanceForSession,
+  } = useApp();
+
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [recapSessionId, setRecapSessionId] = useState<string | null>(null);
+
+  const stats = useMemo(() => {
+    const activeCount = sessions.filter((s) => s.status === 'ACTIVE').length;
+    const closedCount = sessions.filter((s) => s.status === 'CLOSED').length;
+    const totalPresent = attendanceList.length;
+    return { activeCount, closedCount, totalPresent };
+  }, [sessions, attendanceList]);
+
+  const recapSession = useMemo(
+    () => sessions.find((s) => s.id === recapSessionId) ?? null,
+    [sessions, recapSessionId]
+  );
+
+  const recapAttendees = useMemo(
+    () => (recapSession ? getAttendanceForSession(recapSession.id) : []),
+    [recapSession, getAttendanceForSession]
+  );
+
+  const handleConfirm = () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'open') {
+      openSession(confirmAction.session.id);
+    } else {
+      closeSession(confirmAction.session.id);
+    }
+    setConfirmAction(null);
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerBlock}>
+      {/* Ringkasan Statistik Sesi */}
+      <View style={styles.statsRow}>
+        <View style={[styles.statCard, { borderColor: colors.primary }]}>
+          <Text style={[styles.statValue, { color: colors.primary }]}>{stats.activeCount}</Text>
+          <Text style={styles.statLabel}>Sesi Aktif</Text>
+        </View>
+        <View style={[styles.statCard, { borderColor: colors.success }]}>
+          <Text style={[styles.statValue, { color: colors.success }]}>{stats.totalPresent}</Text>
+          <Text style={styles.statLabel}>Total Hadir</Text>
+        </View>
+        <View style={[styles.statCard, { borderColor: colors.neutral }]}>
+          <Text style={[styles.statValue, { color: colors.neutralDark }]}>{stats.closedCount}</Text>
+          <Text style={styles.statLabel}>Sesi Selesai</Text>
+        </View>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Daftar Sesi Praktikum</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countBadgeText}>{sessions.length} Sesi</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderSessionItem = ({ item }: { item: Session }) => {
+    const meta = STATUS_META[item.status];
+    const attendees = getAttendanceForSession(item.id);
+    const presentCount = attendees.length;
+    const capacity = item.totalStudents || 30;
+    const percentage = Math.min(100, Math.round((presentCount / capacity) * 100));
+
+    const dateText = formatDateID(item.date) ?? item.date;
+    const timeText = formatTimeRange(item.startTime, item.endTime) ?? item.time;
+    const subtitle = [item.moduleCode, item.moduleTitle].filter(Boolean).join(' - ');
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardTopRow}>
+          <View style={styles.classPill}>
+            <Text style={styles.classPillText}>Kelas {item.className}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
+            <View style={[styles.statusDot, { backgroundColor: meta.dot }]} />
+            <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.courseTitle}>{item.courseName}</Text>
+        {subtitle ? <Text style={styles.moduleSubtitle}>{subtitle}</Text> : null}
+
+        <View style={styles.infoList}>
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
+            <Text style={styles.infoText}>{dateText}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+            <Text style={styles.infoText}>{timeText}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={15} color={colors.textMuted} />
+            <Text style={styles.infoText}>{item.room}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="person-outline" size={15} color={colors.textMuted} />
+            <Text style={styles.infoText}>Asisten: {item.assistantName}</Text>
+          </View>
+        </View>
+
+        {/* Progress Bar Kehadiran */}
+        <View style={styles.progressSection}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>Kehadiran Praktikan</Text>
+            <Text style={styles.progressValue}>
+              {presentCount} / {capacity} Mahasiswa ({percentage}%)
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${percentage}%`,
+                  backgroundColor:
+                    item.status === 'ACTIVE' ? colors.success : colors.primary,
+                },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Tombol Aksi Kontekstual Asisten */}
+        <View style={styles.actionRow}>
+          {item.status === 'PENDING' ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setConfirmAction({ type: 'open', session: item })}
+              style={[styles.btn, styles.btnSuccess]}
+            >
+              <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.btnPrimaryText}>Buka Sesi Praktikum</Text>
+            </Pressable>
+          ) : null}
+
+          {item.status === 'ACTIVE' ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setRecapSessionId(item.id)}
+                style={[styles.btn, styles.btnPrimary, { flex: 1.4 }]}
+              >
+                <Ionicons name="people-outline" size={17} color="#FFFFFF" />
+                <Text style={styles.btnPrimaryText}>
+                  Rekap Presensi ({presentCount})
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setConfirmAction({ type: 'close', session: item })}
+                style={[styles.btn, styles.btnDangerOutline, { flex: 1 }]}
+              >
+                <Ionicons name="lock-closed-outline" size={16} color={colors.danger} />
+                <Text style={styles.btnDangerOutlineText}>Tutup Sesi</Text>
+              </Pressable>
+            </>
+          ) : null}
+
+          {item.status === 'CLOSED' ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setRecapSessionId(item.id)}
+              style={[styles.btn, styles.btnSecondary]}
+            >
+              <Ionicons name="document-text-outline" size={17} color={colors.neutralDark} />
+              <Text style={styles.btnSecondaryText}>
+                Lihat Rekap Akhir ({presentCount} Hadir)
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        data={sessions}
+        keyExtractor={(item) => item.id}
+        renderItem={renderSessionItem}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+      />
+
+      {/* Modal Konfirmasi Buka / Tutup Sesi */}
+      <Modal
+        visible={confirmAction !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmAction(null)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setConfirmAction(null)}
+          >
+            <View style={styles.backdrop} />
+          </Pressable>
+
+          {confirmAction ? (
+            <View style={styles.confirmCard}>
+              <View
+                style={[
+                  styles.confirmIconCircle,
+                  {
+                    backgroundColor:
+                      confirmAction.type === 'open'
+                        ? colors.successSoft
+                        : colors.dangerSoft,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    confirmAction.type === 'open'
+                      ? 'play-circle-outline'
+                      : 'lock-closed-outline'
+                  }
+                  size={28}
+                  color={
+                    confirmAction.type === 'open' ? colors.success : colors.danger
+                  }
+                />
+              </View>
+
+              <Text style={styles.confirmTitle}>
+                {confirmAction.type === 'open'
+                  ? 'Buka Sesi Praktikum?'
+                  : 'Tutup Sesi Praktikum?'}
+              </Text>
+              <Text style={styles.confirmSubtitle}>
+                {confirmAction.type === 'open'
+                  ? `Mahasiswa kelas ${confirmAction.session.className} akan dapat melakukan presensi mandiri pada sesi "${confirmAction.session.courseName}".`
+                  : `Sesi "${confirmAction.session.courseName}" (${confirmAction.session.className}) akan dikunci dan praktikan tidak dapat mengirim presensi baru.`}
+              </Text>
+
+              <View style={styles.confirmFooter}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setConfirmAction(null)}
+                  style={[styles.btn, styles.btnSecondary]}
+                >
+                  <Text style={styles.btnSecondaryText}>Batal</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleConfirm}
+                  style={[
+                    styles.btn,
+                    confirmAction.type === 'open' ? styles.btnSuccess : styles.btnDanger,
+                  ]}
+                >
+                  <Text style={styles.btnPrimaryText}>
+                    {confirmAction.type === 'open' ? 'Ya, Buka Sesi' : 'Ya, Tutup Sesi'}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+
+      {/* Modal Rekapitulasi Kehadiran Realtime */}
+      <Modal
+        visible={recapSession !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRecapSessionId(null)}
+      >
+        <View style={styles.sheetRoot}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setRecapSessionId(null)}
+          >
+            <View style={styles.backdrop} />
+          </Pressable>
+
+          {recapSession ? (
+            <View style={styles.sheetCard}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <View style={{ flex: 1, marginRight: spacing.sm }}>
+                  <Text style={styles.sheetTitle}>Rekap Presensi Sesi</Text>
+                  <Text style={styles.sheetSubtitle}>
+                    {recapSession.courseName} • Kelas {recapSession.className}
+                  </Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setRecapSessionId(null)}
+                  style={styles.closeCircleBtn}
+                >
+                  <Ionicons name="close" size={20} color={colors.neutralDark} />
+                </Pressable>
+              </View>
+
+              <ScrollView style={styles.recapScroll} showsVerticalScrollIndicator={false}>
+                {recapAttendees.length === 0 ? (
+                  <View style={styles.emptyRecap}>
+                    <Ionicons
+                      name="people-outline"
+                      size={36}
+                      color={colors.textMuted}
+                    />
+                    <Text style={styles.emptyRecapTitle}>
+                      Belum ada praktikan yang melakukan presensi
+                    </Text>
+                    <Text style={styles.emptyRecapSub}>
+                      Data mahasiswa yang melakukan presensi akan otomatis tampil secara
+                      real-time di sini.
+                    </Text>
+                  </View>
+                ) : (
+                  recapAttendees.map((att, idx) => {
+                    const timeStr =
+                      formatTimeWIB(att.timestamp) ?? att.attendedAt ?? '-';
+                    return (
+                      <View key={att.id} style={styles.attendeeItem}>
+                        <View style={styles.attendeeIndex}>
+                          <Text style={styles.attendeeIndexText}>{idx + 1}</Text>
+                        </View>
+                        <View style={styles.attendeeInfo}>
+                          <Text style={styles.attendeeName}>{att.studentName}</Text>
+                          <Text style={styles.attendeeNim}>NIM {att.studentNim}</Text>
+                          {att.notes ? (
+                            <Text style={styles.attendeeNotes}>
+                              Posisi: {att.notes}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={styles.attendeeTimeBadge}>
+                          <Text style={styles.attendeeTimeText}>{timeStr}</Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </ScrollView>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setRecapSessionId(null)}
+                style={[styles.btn, styles.btnPrimary, { marginTop: spacing.md }]}
+              >
+                <Text style={styles.btnPrimaryText}>Tutup Rekap</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+  },
+  listContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xl * 2,
+  },
+  headerBlock: {
+    marginBottom: spacing.sm,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  statLabel: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  countBadge: {
+    backgroundColor: colors.neutralSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.neutralDark,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  classPill: {
+    backgroundColor: colors.assistantTagBg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  classPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.assistantTagDark,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.pill,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  courseTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  moduleSubtitle: {
+    marginTop: 2,
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  infoList: {
+    marginTop: spacing.md,
+    gap: 5,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoText: {
+    marginLeft: spacing.sm,
+    fontSize: 13,
+    color: colors.text,
+  },
+  progressSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  progressValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  progressTrack: {
+    height: 7,
+    backgroundColor: colors.neutralSoft,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  btn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    gap: 6,
+  },
+  btnPrimary: {
+    backgroundColor: colors.primary,
+  },
+  btnSuccess: {
+    backgroundColor: colors.success,
+  },
+  btnDanger: {
+    backgroundColor: colors.danger,
+  },
+  btnDangerOutline: {
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  btnSecondary: {
+    backgroundColor: colors.neutralSoft,
+  },
+  btnPrimaryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  btnDangerOutlineText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.dangerDark,
+  },
+  btnSecondaryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutralDark,
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+  },
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+    ...theme.shadows.modal,
+  },
+  confirmIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  confirmSubtitle: {
+    marginTop: spacing.sm,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  confirmFooter: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
+    marginTop: spacing.lg,
+  },
+  sheetRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  sheetCard: {
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '85%',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.lg,
+    ...theme.shadows.modal,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  sheetSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  closeCircleBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.neutralSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recapScroll: {
+    flexGrow: 0,
+  },
+  emptyRecap: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  emptyRecapTitle: {
+    marginTop: spacing.sm,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  emptyRecapSub: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  attendeeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  attendeeIndex: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attendeeIndexText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primaryDark,
+  },
+  attendeeInfo: {
+    flex: 1,
+    marginHorizontal: spacing.sm,
+  },
+  attendeeName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  attendeeNim: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  attendeeNotes: {
+    marginTop: 2,
+    fontSize: 12,
+    color: colors.primaryDark,
+    fontWeight: '600',
+  },
+  attendeeTimeBadge: {
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  attendeeTimeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.successDark,
+  },
+});
+
+export default AssistantView;
+

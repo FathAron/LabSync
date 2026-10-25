@@ -1,4 +1,5 @@
-// TASK-04 - Halaman awal SEMENTARA: langsung menuju sudut pandang praktikan.
+// TASK-02 - Halaman awal aplikasi LabSync: mengarahkan rute dasar ke modul praktikan (/student)
+// sementara peran aktif (Asisten / Praktikan) dikontrol secara instan melalui Header App Shell.
 
 import { Redirect } from 'expo-router';
 
