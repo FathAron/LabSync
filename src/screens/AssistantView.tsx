@@ -259,25 +259,31 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   listContent: {
+    flexGrow: 1,
     padding: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },
   headerBlock: {
     marginBottom: spacing.sm,
   },
+
+  // Statistik
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
   statCard: {
     flex: 1,
+    minWidth: 96,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
     fontSize: 22,
@@ -288,14 +294,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.textMuted,
+    textAlign: 'center',
   },
+
+  // Header daftar sesi
   sectionHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   sectionTitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 16,
     fontWeight: '800',
     color: colors.text,
@@ -311,6 +324,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.neutralDark,
   },
+
+  // Kartu sesi
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -321,8 +336,10 @@ const styles = StyleSheet.create({
   },
   cardTopRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   classPill: {
@@ -330,6 +347,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.pill,
+    alignSelf: 'flex-start',
   },
   classPillText: {
     fontSize: 12,
@@ -342,6 +360,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.pill,
+    flexShrink: 0,
   },
   statusDot: {
     width: 8,
@@ -357,37 +376,51 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: colors.text,
+    lineHeight: 23,
   },
   moduleSubtitle: {
     marginTop: 2,
     fontSize: 14,
+    lineHeight: 20,
     color: colors.textMuted,
   },
+
+  // Informasi sesi
   infoList: {
     marginTop: spacing.md,
-    gap: 5,
+    gap: spacing.sm,
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   infoText: {
-    marginLeft: spacing.sm,
+    flex: 1,
+    minWidth: 0,
     fontSize: 13,
+    lineHeight: 19,
     color: colors.text,
   },
+
+  // Progress presensi
   progressSection: {
     marginTop: spacing.md,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   progressHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginBottom: 6,
   },
   progressLabel: {
+    flex: 1,
+    minWidth: 110,
     fontSize: 12,
     fontWeight: '600',
     color: colors.textMuted,
@@ -407,19 +440,26 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: radius.pill,
   },
+
+  // Tombol aksi
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.md,
   },
   btn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 0,
     minHeight: 44,
     borderRadius: radius.md,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     gap: 6,
   },
   btnPrimary: {
@@ -440,39 +480,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutralSoft,
   },
   btnPrimaryText: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+    textAlign: 'center',
   },
   btnDangerOutlineText: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '700',
     color: colors.dangerDark,
+    textAlign: 'center',
   },
   btnSecondaryText: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '700',
     color: colors.neutralDark,
+    textAlign: 'center',
   },
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-  },
-  confirmCard: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-    ...theme.shadows.modal,
-  },
+
+  // Ikon konfirmasi pada AppModal
   confirmIconCircle: {
     width: 56,
     height: 56,
@@ -480,98 +509,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-  },
-  confirmTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  confirmSubtitle: {
-    marginTop: spacing.sm,
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textMuted,
-    textAlign: 'center',
+    alignSelf: 'center',
   },
   confirmFooter: {
+    width: '100%',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
-    width: '100%',
-    marginTop: spacing.lg,
   },
-  sheetRoot: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  sheetCard: {
-    width: '100%',
-    maxWidth: 560,
-    maxHeight: '85%',
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: spacing.lg,
-    ...theme.shadows.modal,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  sheetTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  sheetSubtitle: {
-    marginTop: 2,
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  closeCircleBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.neutralSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recapScroll: {
-    flexGrow: 0,
-  },
-  emptyRecap: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.md,
-  },
-  emptyRecapTitle: {
-    marginTop: spacing.sm,
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  emptyRecapSub: {
-    marginTop: 4,
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
+
+  // Daftar rekap kehadiran
   attendeeItem: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
+    gap: spacing.sm,
     padding: spacing.md,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -593,7 +545,8 @@ const styles = StyleSheet.create({
   },
   attendeeInfo: {
     flex: 1,
-    marginHorizontal: spacing.sm,
+    flexBasis: 150,
+    minWidth: 0,
   },
   attendeeName: {
     fontSize: 14,
@@ -603,6 +556,7 @@ const styles = StyleSheet.create({
   attendeeNim: {
     fontSize: 12,
     color: colors.textMuted,
+    marginTop: 2,
   },
   attendeeNotes: {
     marginTop: 2,
@@ -615,11 +569,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.pill,
+    marginLeft: 'auto',
   },
   attendeeTimeText: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.successDark,
+  },
+  recapCloseButton: {
+  flex: 0,
+  width: '100%',
+  height: 44,
+  minHeight: 44,
+  padding: 0,
+  margin: 0,
+  borderRadius: radius.md,
+  alignSelf: 'stretch',
+  alignItems: 'center',
+  justifyContent: 'center',
   },
 });
 
