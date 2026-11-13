@@ -201,9 +201,47 @@ Endpoint dikonfigurasi melalui environment variable: `EXPO_PUBLIC_AI_API_URL`.
 
 ---
 
-## 4. Kontrak `AppContextValue` (Acuan Paralel Programmer 1, 2, 3)
+## 4. Kontrak Antar Modul (Acuan Paralel Naufal, Wipin, Adelia)
 
-Agar Programmer 2 & 3 dapat bekerja paralel tanpa menunggu Programmer 1 selesai:
+Agar ketiga programmer dapat bekerja paralel tanpa menunggu satu sama lain dan tanpa mengedit file yang sama, kontrak dibagi menjadi 3 lapis:
+
+### A. Kontrak `AppContext` (`useApp()` — Dikelola Naufal)
+
+```typescript
+export interface AppContextValue {
+  // Auth & User State
+  currentUser: UserProfile | null;
+  currentRole: UserRole | null;
+  authLoading: boolean;
+  syncError: string | null;
+  setSyncError: (message: string | null) => void;
+
+  // Kompatibilitas Sprint 1 (diisi otomatis dari currentUser)
+  currentAssistant: UserProfile | null;
+  currentStudent: UserProfile | null;
+
+  // Toast / Feedback & Error Reporting (SRS-04)
+  feedbackToast: FeedbackToastState | null;
+  showToast: (message: string, type?: ToastTone, withHistoryLink?: boolean) => void;
+  hideToast: () => void;
+  notify: (feedback: { type: FeedbackType; message: string; withHistoryLink?: boolean }) => void;
+  reportError: (source: 'auth' | 'firestore' | 'ai', message: string) => void;
+
+  // Auth Actions (SRS-01, SRS-02)
+  login: (email: string, password: string) => Promise<ApiResponse<UserProfile>>;
+  register: (payload: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+    nim: string;
+    className: string;
+  }) => Promise<ApiResponse<UserProfile>>;
+  logout: () => Promise<ApiResponse<void>>;
+}
+```
+
+### B. Kontrak `usePracticum()` & `practicumService` (Dikelola Wipin — SRS-05..08)
 
 ```typescript
 export interface CreateSessionInput {
@@ -228,44 +266,12 @@ export interface CreateClassInput {
   studentIds?: string[];
 }
 
-export interface AppContextValue {
-  // Auth & User State
-  currentUser: UserProfile | null;
-  currentRole: UserRole | null;
-  authLoading: boolean;
-  dataLoading: boolean;
-  syncError: string | null;
-
-  // Kompatibilitas Sprint 1 (diisi otomatis dari currentUser)
-  currentAssistant: UserProfile | null;
-  currentStudent: UserProfile | null;
-
-  // Real-time Collections (dari onSnapshot)
+export interface UsePracticumResult {
   classes: LabClass[];
   students: UserProfile[];
   sessions: Session[];
   attendanceList: AttendanceRecord[];
-  leaveRequests: LeaveRequest[];
-
-  // Toast / Feedback (Sprint 1)
-  feedbackToast: FeedbackToastState | null;
-  showToast: (message: string, type?: ToastTone, withHistoryLink?: boolean) => void;
-  hideToast: () => void;
-  notify: (feedback: { type: FeedbackType; message: string; withHistoryLink?: boolean }) => void;
-
-  // Auth Actions (Programmer 1)
-  login: (email: string, password: string) => Promise<ApiResponse<UserProfile>>;
-  register: (payload: {
-    name: string;
-    email: string;
-    password: string;
-    role: UserRole;
-    nim: string;
-    className: string;
-  }) => Promise<ApiResponse<UserProfile>>;
-  logout: () => Promise<ApiResponse<void>>;
-
-  // Session & Class CRUD Actions (Dipanggil Programmer 2)
+  dataLoading: boolean;
   createSession: (input: CreateSessionInput) => Promise<ApiResponse<Session>>;
   updateSession: (sessionId: string, patch: Partial<CreateSessionInput>) => Promise<ApiResponse<void>>;
   deleteSession: (sessionId: string) => Promise<ApiResponse<void>>;
@@ -275,16 +281,21 @@ export interface AppContextValue {
   updateClass: (classId: string, patch: Partial<CreateClassInput>) => Promise<ApiResponse<void>>;
   deleteClass: (classId: string) => Promise<ApiResponse<void>>;
   assignStudentToClass: (studentId: string, className: string) => Promise<ApiResponse<void>>;
-
-  // Attendance Actions (Dipanggil Programmer 3 & 2)
-  recordAttendance: (sessionId: string, student: unknown, notes?: string) => Promise<ApiResponse<AttendanceRecord>>;
+  recordAttendance: (sessionId: string, notes?: string) => Promise<ApiResponse<AttendanceRecord>>;
   hasStudentAttended: (sessionId: string, studentId: string) => boolean;
-  getStudentAttendanceRecord: (sessionId: string, studentId: string) => AttendanceRecord | undefined;
   getAttendanceForSession: (sessionId: string) => AttendanceRecord[];
-  getStudentHistory: (studentId: string) => StudentHistoryItem[];
+}
+```
 
-  // Leave Request & AI Actions (Dipanggil Programmer 3 & 2)
-  submitLeaveRequest: (sessionId: string, reason: string) => Promise<ApiResponse<LeaveRequest>>;
+### C. Kontrak `useLeave()` & `leaveService` (Dikelola Adelia — SRS-09..12)
+
+```typescript
+export interface UseLeaveResult {
+  leaveRequests: LeaveRequest[];
+  pendingCount: number;
+  loading: boolean;
+  submitting: boolean;
+  submitLeaveRequest: (session: Session, reason: string) => Promise<ApiResponse<LeaveRequest>>;
   reviewLeaveRequest: (
     leaveId: string,
     decision: 'APPROVED' | 'REJECTED',
@@ -292,6 +303,8 @@ export interface AppContextValue {
   ) => Promise<ApiResponse<void>>;
 }
 ```
+
+> **Integrasi UI Asisten**: Adelia membuat komponen mandiri `src/features/leave/components/AssistantLeaveSection.tsx` (props opsional atau memakai `useLeave()` + `useApp()`). Wipin cukup me-render `<AssistantLeaveSection />` di dalam tab **Pengajuan Izin** pada `AssistantView.tsx`.
 
 ---
 
