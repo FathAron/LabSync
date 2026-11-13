@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAssistant() {
+      return isSignedIn() && userDoc().role == 'assistant';
+    }
+
+    function isStudent() {
+      return isSignedIn() && userDoc().role == 'student';
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.role in ['student', 'assistant'];
+      allow update: if isSignedIn() && (
+        (request.auth.uid == uid && request.resource.data.role == resource.data.role)
+        || (isAssistant() && resource.data.role == 'student'
+            && request.resource.data.role == resource.data.role)
+      );
+      allow delete: if false;
+    }
+
+    match /classes/{classId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAssistant();
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAssistant();
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if isAssistant() || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && attendanceId == request.resource.data.sessionId + '_' + request.auth.uid
+        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'ACTIVE'
+        && !exists(/databases/$(database)/documents/attendance/$(attendanceId));
+      allow update, delete: if false;
+    }
+
+    match /leaveRequests/{leaveId} {
+      allow read: if isAssistant() || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status == 'PENDING';
+      allow update: if isAssistant()
+        && request.resource.data.status in ['APPROVED', 'REJECTED']
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.sessionId == resource.data.sessionId
+        && request.resource.data.reason == resource.data.reason;
+      allow delete: if false;
+    }
+  }
+}
+

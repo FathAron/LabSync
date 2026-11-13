@@ -1,35 +1,28 @@
-// TASK-01 - Central State Store (Aron Sorimuda Johanes Pasaribu)
-// Mengelola state terpusat aplikasi LabSync menggunakan React Context API.
-// Kompatibel penuh dengan kontrak CentralState pada modul Praktikan (TASK-04)
-// serta kebutuhan modul Asisten (TASK-03) dan App Shell (TASK-02).
-
 import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import {
-  ASSISTANTS,
   INITIAL_ATTENDANCE,
   INITIAL_SESSIONS,
-  STUDENTS,
-  type Assistant,
-  type AttendanceRecord,
-  type Session,
-  type Student,
+  type AttendanceRecord as MockAttendanceRecord,
+  type Session as MockSession,
 } from '../data/mockData';
+import { formatTimeWIB, readStudent, sameId, sameText } from '../features/student/studentUtils';
+import type { FeedbackType, Id } from '../features/student/types';
 import {
-  formatTimeWIB,
-  readStudent,
-  sameId,
-  sameText,
-} from '../features/student/studentUtils';
-import type { CentralState, FeedbackType, Id } from '../features/student/types';
-
-export type UserRole = 'assistant' | 'student';
+  loginUser,
+  logoutUser,
+  registerUser,
+  subscribeAuthState,
+  type RegisterPayload,
+} from '../services/authService';
+import type { ApiResponse, UserProfile, UserRole } from '../types/models';
 
 export type ToastTone = FeedbackType | 'warning' | 'danger';
 
@@ -44,61 +37,60 @@ export interface RecordAttendanceResult {
   success: boolean;
   ok: boolean;
   message: string;
-  record?: AttendanceRecord;
+  record?: MockAttendanceRecord;
 }
 
-export interface StudentHistoryItem extends AttendanceRecord {
-  session: Session | null;
-}
+export interface AppContextValue {
+  // Auth & User State
+  currentUser: UserProfile | null;
+  currentRole: UserRole | null;
+  authLoading: boolean;
+  syncError: string | null;
+  setSyncError: (message: string | null) => void;
 
-export interface AppContextValue extends CentralState {
-  currentRole: UserRole;
-  setCurrentRole: (role: UserRole) => void;
-  toggleRole: () => void;
-  currentAssistant: Assistant;
-  setCurrentAssistant: (assistant: Assistant) => void;
-  currentStudent: Student | null;
-  setCurrentStudent: (student: Student | null) => void;
-  assistants: Assistant[];
-  students: Student[];
-  sessions: Session[];
-  attendanceList: AttendanceRecord[];
+  // Kompatibilitas Sprint 1 (diisi otomatis dari currentUser)
+  currentAssistant: UserProfile | null;
+  currentStudent: UserProfile | null;
+
+  // Toast / Feedback & Error Reporting (SRS-04)
   feedbackToast: FeedbackToastState | null;
   showToast: (message: string, type?: ToastTone, withHistoryLink?: boolean) => void;
   hideToast: () => void;
   notify: (feedback: { type: FeedbackType; message: string; withHistoryLink?: boolean }) => void;
+  reportError: (source: 'auth' | 'firestore' | 'ai', message: string) => void;
+
+  // Auth Actions (SRS-01, SRS-02)
+  login: (email: string, password: string) => Promise<ApiResponse<UserProfile>>;
+  register: (payload: RegisterPayload) => Promise<ApiResponse<UserProfile>>;
+  logout: () => Promise<ApiResponse<void>>;
+
+  // Kompatibilitas Sprint 1 untuk AssistantView & centralState sebelum modul Wipin di-merge
+  sessions: MockSession[];
+  attendanceList: MockAttendanceRecord[];
   openSession: (sessionId: Id) => boolean;
   closeSession: (sessionId: Id) => boolean;
   recordAttendance: (sessionId: Id, student: unknown, notes?: string) => RecordAttendanceResult;
   hasStudentAttended: (sessionId: Id, studentId: Id) => boolean;
-  getStudentAttendanceRecord: (sessionId: Id, studentId: Id) => AttendanceRecord | undefined;
-  getAttendanceForSession: (sessionId: Id) => AttendanceRecord[];
-  getStudentHistory: (studentId: Id) => StudentHistoryItem[];
-  resetDemoData: () => void;
+  getAttendanceForSession: (sessionId: Id) => MockAttendanceRecord[];
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const TOAST_DURATION_MS = 3800;
+const TOAST_DURATION_MS = 4000;
 
 const getCurrentWIBString = (): string => {
-  const now = new Date();
-  return formatTimeWIB(now) ?? '00:00 WIB';
+  return formatTimeWIB(new Date()) ?? '00:00 WIB';
 };
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-  const [currentRole, setCurrentRoleState] = useState<UserRole>('student');
-  const [currentAssistant, setCurrentAssistantState] = useState<Assistant>(ASSISTANTS[0]);
-  const [currentStudent, setCurrentStudentState] = useState<Student | null>(STUDENTS[0]);
-  const [sessions, setSessions] = useState<Session[]>(INITIAL_SESSIONS);
-  const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<FeedbackToastState | null>(null);
 
-  const sessionsRef = useRef<Session[]>(sessions);
-  sessionsRef.current = sessions;
-
-  const attendanceRef = useRef<AttendanceRecord[]>(attendanceList);
-  attendanceRef.current = attendanceList;
+  // State kompatibilitas Sprint 1
+  const [sessions, setSessions] = useState<MockSession[]>(INITIAL_SESSIONS);
+  const [attendanceList, setAttendanceList] = useState<MockAttendanceRecord[]>(INITIAL_ATTENDANCE);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -140,52 +132,89 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     [showToast]
   );
 
-  const setCurrentRole = useCallback(
-    (role: UserRole) => {
-      setCurrentRoleState(role);
-      showToast(
-        `Beralih ke Sudut Pandang ${role === 'assistant' ? 'Asisten Praktikum' : 'Praktikan'}.`,
-        'info'
-      );
+  const reportError = useCallback(
+    (source: 'auth' | 'firestore' | 'ai', message: string) => {
+      const cleanMessage = message.trim() || 'Terjadi gangguan pada layanan.';
+      if (source === 'firestore') {
+        setSyncError(cleanMessage);
+        showToast(cleanMessage, 'error');
+        return;
+      }
+      if (source === 'ai') {
+        showToast(cleanMessage, 'warning');
+        return;
+      }
+      showToast(cleanMessage, 'error');
     },
     [showToast]
   );
 
-  const toggleRole = useCallback(() => {
-    setCurrentRoleState((prev) => {
-      const next = prev === 'assistant' ? 'student' : 'assistant';
-      showToast(
-        `Beralih ke Sudut Pandang ${next === 'assistant' ? 'Asisten Praktikum' : 'Praktikan'}.`,
-        'info'
-      );
-      return next;
+  useEffect(() => {
+    const unsubscribe = subscribeAuthState((user, errorMessage) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+      if (errorMessage) {
+        setSyncError(errorMessage);
+        showToast(errorMessage, 'error');
+      } else {
+        setSyncError(null);
+      }
     });
+
+    return () => {
+      unsubscribe();
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
   }, [showToast]);
 
-  const setCurrentAssistant = useCallback(
-    (assistant: Assistant) => {
-      setCurrentAssistantState(assistant);
-      showToast(`Identitas asisten aktif: ${assistant.name}`, 'info');
-    },
-    [showToast]
-  );
-
-  const setCurrentStudent = useCallback(
-    (student: Student | null) => {
-      setCurrentStudentState(student);
-      if (student) {
-        showToast(`Identitas praktikan aktif: ${student.name} (${student.className})`, 'info');
+  const login = useCallback(
+    async (email: string, password: string): Promise<ApiResponse<UserProfile>> => {
+      const res = await loginUser(email, password);
+      if (res.ok && res.data) {
+        setCurrentUser(res.data);
+        setSyncError(null);
+        showToast(res.message, 'success');
       } else {
-        showToast('Simulasi tanpa identitas praktikan diaktifkan.', 'warning');
+        reportError('auth', res.message);
       }
+      return res;
     },
-    [showToast]
+    [reportError, showToast]
   );
 
-  // Asisten: Buka sesi praktikum (PENDING -> ACTIVE)
+  const register = useCallback(
+    async (payload: RegisterPayload): Promise<ApiResponse<UserProfile>> => {
+      const res = await registerUser(payload);
+      if (res.ok && res.data) {
+        setCurrentUser(res.data);
+        setSyncError(null);
+        showToast(res.message, 'success');
+      } else {
+        reportError('auth', res.message);
+      }
+      return res;
+    },
+    [reportError, showToast]
+  );
+
+  const logout = useCallback(async (): Promise<ApiResponse<void>> => {
+    const res = await logoutUser();
+    if (res.ok) {
+      setCurrentUser(null);
+      setSyncError(null);
+      showToast(res.message, 'info');
+    } else {
+      reportError('auth', res.message);
+    }
+    return res;
+  }, [reportError, showToast]);
+
+  // --- Helper Kompatibilitas Sprint 1 ---
   const openSession = useCallback(
     (sessionId: Id): boolean => {
-      const target = sessionsRef.current.find((s) => sameId(s.id, sessionId));
+      const target = sessions.find((s) => sameId(s.id, sessionId));
       if (!target) {
         showToast('Sesi praktikum tidak ditemukan.', 'error');
         return false;
@@ -198,26 +227,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         showToast('Sesi praktikum sudah dalam keadaan aktif.', 'info');
         return false;
       }
-
       const openedAt = getCurrentWIBString();
-      const updated = sessionsRef.current.map((s) =>
-        sameId(s.id, sessionId) ? { ...s, status: 'ACTIVE' as const, openedAt } : s
+      setSessions((prev) =>
+        prev.map((s) => (sameId(s.id, sessionId) ? { ...s, status: 'ACTIVE', openedAt } : s))
       );
-      sessionsRef.current = updated;
-      setSessions(updated);
-      showToast(
-        `Sesi ${target.courseName} (${target.className}) dibuka pukul ${openedAt}.`,
-        'success'
-      );
+      showToast(`Sesi ${target.courseName} (${target.className}) dibuka pukul ${openedAt}.`, 'success');
       return true;
     },
-    [showToast]
+    [sessions, showToast]
   );
 
-  // Asisten: Tutup sesi praktikum (ACTIVE -> CLOSED)
   const closeSession = useCallback(
     (sessionId: Id): boolean => {
-      const target = sessionsRef.current.find((s) => sameId(s.id, sessionId));
+      const target = sessions.find((s) => sameId(s.id, sessionId));
       if (!target) {
         showToast('Sesi praktikum tidak ditemukan.', 'error');
         return false;
@@ -226,52 +248,40 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         showToast('Hanya sesi yang sedang dibuka yang dapat ditutup.', 'error');
         return false;
       }
-
       const closedAt = getCurrentWIBString();
-      const updated = sessionsRef.current.map((s) =>
-        sameId(s.id, sessionId) ? { ...s, status: 'CLOSED' as const, closedAt } : s
+      setSessions((prev) =>
+        prev.map((s) => (sameId(s.id, sessionId) ? { ...s, status: 'CLOSED', closedAt } : s))
       );
-      sessionsRef.current = updated;
-      setSessions(updated);
-      showToast(
-        `Sesi ${target.courseName} (${target.className}) ditutup pukul ${closedAt}.`,
-        'warning'
-      );
+      showToast(`Sesi ${target.courseName} (${target.className}) ditutup pukul ${closedAt}.`, 'warning');
       return true;
     },
-    [showToast]
+    [sessions, showToast]
   );
 
-  // Validasi apakah mahasiswa sudah melakukan presensi pada sesi tertentu
-  const hasStudentAttended = useCallback((sessionId: Id, studentId: Id): boolean => {
-    return attendanceRef.current.some(
-      (item) => sameId(item.sessionId, sessionId) && sameId(item.studentId, studentId)
-    );
-  }, []);
-
-  // Ambil objek presensi mahasiswa pada sesi tertentu
-  const getStudentAttendanceRecord = useCallback(
-    (sessionId: Id, studentId: Id): AttendanceRecord | undefined => {
-      return attendanceRef.current.find(
+  const hasStudentAttended = useCallback(
+    (sessionId: Id, studentId: Id): boolean => {
+      return attendanceList.some(
         (item) => sameId(item.sessionId, sessionId) && sameId(item.studentId, studentId)
       );
     },
-    []
+    [attendanceList]
   );
 
-  // Praktikan: Catat kehadiran mandiri dengan validasi status & anti-duplikasi
   const recordAttendance = useCallback(
     (sessionId: Id, studentInput: unknown, notes = ''): RecordAttendanceResult => {
-      const parsedStudent = readStudent(studentInput ?? currentStudent);
+      const fallbackStudent = currentUser?.role === 'student' ? currentUser : null;
+      const parsedStudent = readStudent(studentInput ?? fallbackStudent);
       if (!parsedStudent) {
-        const msg = 'Identitas praktikan belum tersedia. Pilih identitas terlebih dahulu.';
-        return { success: false, ok: false, message: msg };
+        return {
+          success: false,
+          ok: false,
+          message: 'Identitas praktikan belum tersedia.',
+        };
       }
 
-      const targetSession = sessionsRef.current.find((s) => sameId(s.id, sessionId));
+      const targetSession = sessions.find((s) => sameId(s.id, sessionId));
       if (!targetSession) {
-        const msg = 'Data sesi tidak ditemukan.';
-        return { success: false, ok: false, message: msg };
+        return { success: false, ok: false, message: 'Data sesi tidak ditemukan.' };
       }
 
       if (
@@ -279,33 +289,32 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         parsedStudent.className !== '' &&
         !sameText(targetSession.className, parsedStudent.className)
       ) {
-        const msg = 'Sesi ini bukan untuk kelasmu.';
-        return { success: false, ok: false, message: msg };
+        return { success: false, ok: false, message: 'Sesi ini bukan untuk kelasmu.' };
       }
 
       if (targetSession.status !== 'ACTIVE') {
-        const msg =
-          targetSession.status === 'PENDING'
-            ? 'Presensi hanya dapat dilakukan saat sesi dibuka.'
-            : 'Sesi praktikum telah ditutup.';
-        return { success: false, ok: false, message: msg };
+        return {
+          success: false,
+          ok: false,
+          message:
+            targetSession.status === 'PENDING'
+              ? 'Presensi hanya dapat dilakukan saat sesi dibuka.'
+              : 'Sesi praktikum telah ditutup.',
+        };
       }
 
-      const alreadyPresent = attendanceRef.current.some(
-        (item) =>
-          sameId(item.sessionId, sessionId) && sameId(item.studentId, parsedStudent.id)
-      );
-      if (alreadyPresent) {
-        const msg = 'Anda sudah melakukan presensi pada sesi ini.';
-        return { success: false, ok: false, message: msg };
+      if (hasStudentAttended(sessionId, parsedStudent.id)) {
+        return {
+          success: false,
+          ok: false,
+          message: 'Anda sudah melakukan presensi pada sesi ini.',
+        };
       }
 
       const nowIso = new Date().toISOString();
       const attendedAt = formatTimeWIB(nowIso) ?? getCurrentWIBString();
-      const trimmedNotes = typeof notes === 'string' ? notes.trim() : '';
-
-      const newRecord: AttendanceRecord = {
-        id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      const newRecord: MockAttendanceRecord = {
+        id: `${String(targetSession.id)}_${String(parsedStudent.id)}`,
         sessionId: String(targetSession.id),
         studentId: String(parsedStudent.id),
         studentNim: parsedStudent.nim,
@@ -313,13 +322,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         timestamp: nowIso,
         attendedAt,
         status: 'Hadir',
-        notes: trimmedNotes,
+        notes: typeof notes === 'string' ? notes.trim() : '',
       };
 
-      const nextList = [newRecord, ...attendanceRef.current];
-      attendanceRef.current = nextList;
-      setAttendanceList(nextList);
-
+      setAttendanceList((prev) => [newRecord, ...prev]);
       return {
         success: true,
         ok: true,
@@ -327,89 +333,69 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         record: newRecord,
       };
     },
-    [currentStudent]
+    [currentUser, hasStudentAttended, sessions]
   );
 
-  // Asisten: Ambil daftar hadir mahasiswa untuk sesi tertentu
   const getAttendanceForSession = useCallback(
-    (sessionId: Id): AttendanceRecord[] => {
+    (sessionId: Id): MockAttendanceRecord[] => {
       return attendanceList.filter((item) => sameId(item.sessionId, sessionId));
     },
     [attendanceList]
   );
 
-  // Praktikan: Ambil riwayat kehadiran lengkap dengan detail sesi
-  const getStudentHistory = useCallback(
-    (studentId: Id): StudentHistoryItem[] => {
-      return attendanceList
-        .filter((item) => sameId(item.studentId, studentId))
-        .map((record) => ({
-          ...record,
-          session: sessions.find((s) => sameId(s.id, record.sessionId)) ?? null,
-        }));
-    },
-    [attendanceList, sessions]
-  );
-
-  // Reset seluruh data demo ke kondisi awal
-  const resetDemoData = useCallback(() => {
-    sessionsRef.current = INITIAL_SESSIONS;
-    attendanceRef.current = INITIAL_ATTENDANCE;
-    setSessions(INITIAL_SESSIONS);
-    setAttendanceList(INITIAL_ATTENDANCE);
-    setCurrentAssistantState(ASSISTANTS[0]);
-    setCurrentStudentState(STUDENTS[0]);
-    showToast('Data demo berhasil direset ke kondisi awal.', 'info');
-  }, [showToast]);
+  const currentRole: UserRole | null = currentUser?.role ?? null;
+  const currentAssistant: UserProfile | null =
+    currentUser?.role === 'assistant' ? currentUser : null;
+  const currentStudent: UserProfile | null =
+    currentUser?.role === 'student' ? currentUser : null;
 
   const value = useMemo<AppContextValue>(
     () => ({
+      currentUser,
       currentRole,
-      setCurrentRole,
-      toggleRole,
+      authLoading,
+      syncError,
+      setSyncError,
       currentAssistant,
-      setCurrentAssistant,
       currentStudent,
-      setCurrentStudent,
-      assistants: ASSISTANTS,
-      students: STUDENTS,
-      sessions,
-      attendanceList,
       feedbackToast,
       showToast,
       hideToast,
       notify,
+      reportError,
+      login,
+      register,
+      logout,
+      sessions,
+      attendanceList,
       openSession,
       closeSession,
       recordAttendance,
       hasStudentAttended,
-      getStudentAttendanceRecord,
       getAttendanceForSession,
-      getStudentHistory,
-      resetDemoData,
     }),
     [
+      currentUser,
       currentRole,
-      setCurrentRole,
-      toggleRole,
+      authLoading,
+      syncError,
       currentAssistant,
-      setCurrentAssistant,
       currentStudent,
-      setCurrentStudent,
-      sessions,
-      attendanceList,
       feedbackToast,
       showToast,
       hideToast,
       notify,
+      reportError,
+      login,
+      register,
+      logout,
+      sessions,
+      attendanceList,
       openSession,
       closeSession,
       recordAttendance,
       hasStudentAttended,
-      getStudentAttendanceRecord,
       getAttendanceForSession,
-      getStudentHistory,
-      resetDemoData,
     ]
   );
 
@@ -423,4 +409,3 @@ export const useApp = (): AppContextValue => {
   }
   return context;
 };
-

@@ -1,6 +1,3 @@
-// TASK-02 - Global Notification System (FeedbackToast)
-// Penanggung Jawab: Aron Sorimuda Johanes Pasaribu
-
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,7 +46,7 @@ const getToastMeta = (
 
 export const FeedbackToast = () => {
   const router = useRouter();
-  const { feedbackToast, hideToast, currentRole, setCurrentRole } = useApp();
+  const { feedbackToast, hideToast, currentRole } = useApp();
 
   if (!feedbackToast) return null;
 
@@ -57,10 +54,9 @@ export const FeedbackToast = () => {
 
   const handleViewHistory = () => {
     hideToast();
-    if (currentRole !== 'student') {
-      setCurrentRole('student');
+    if (currentRole === 'student') {
+      router.push('/student/history');
     }
-    router.push('/student/history');
   };
 
   return (
@@ -75,7 +71,7 @@ export const FeedbackToast = () => {
         <Ionicons name={meta.icon} size={20} color={meta.fg} style={styles.icon} />
         <View style={styles.textContainer}>
           <Text style={[styles.message, { color: meta.fg }]}>{feedbackToast.message}</Text>
-          {feedbackToast.withHistoryLink ? (
+          {feedbackToast.withHistoryLink && currentRole === 'student' ? (
             <Pressable
               accessibilityRole="link"
               onPress={handleViewHistory}
@@ -148,4 +144,3 @@ const styles = StyleSheet.create({
 });
 
 export default FeedbackToast;
-

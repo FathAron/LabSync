@@ -1,19 +1,9 @@
-// TASK-02 - App Shell Header, Segmented Role Switcher & Persona Selector
-// Penanggung Jawab: Aron Sorimuda Johanes Pasaribu
-
 import React, { useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
-import { CONTENT_MAX_WIDTH, colors, radius, spacing, theme } from '../styles/theme';
+import { CONTENT_MAX_WIDTH, colors, radius, spacing } from '../styles/theme';
 
 const getInitials = (name: string): string => {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -25,44 +15,34 @@ const getInitials = (name: string): string => {
 
 export const Header = () => {
   const insets = useSafeAreaInsets();
-  const {
-    currentRole,
-    setCurrentRole,
-    currentAssistant,
-    setCurrentAssistant,
-    currentStudent,
-    setCurrentStudent,
-    assistants,
-    students,
-    resetDemoData,
-  } = useApp();
+  const { currentUser, currentRole, syncError, setSyncError, logout } = useApp();
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const [pickerModalVisible, setPickerModalVisible] = useState(false);
+  if (!currentUser || !currentRole) {
+    return null;
+  }
 
   const isAssistant = currentRole === 'assistant';
+  const avatarText = currentUser.avatar || getInitials(currentUser.name);
 
-  const activeName = isAssistant
-    ? currentAssistant.name
-    : currentStudent
-    ? currentStudent.name
-    : 'Belum Dipilih';
+  const subtitle = isAssistant
+    ? currentUser.assistantRole || 'Asisten Laboratorium'
+    : `NIM ${currentUser.nim || '-'} • Kelas ${currentUser.className || '-'}`;
 
-  const activeSubtitle = isAssistant
-    ? currentAssistant.role
-    : currentStudent
-    ? `NIM ${currentStudent.nim} • Kelas ${currentStudent.className}`
-    : 'Klik Ganti untuk memilih akun praktikan';
-
-  const activeAvatar = isAssistant
-    ? currentAssistant.avatar || getInitials(currentAssistant.name)
-    : currentStudent
-    ? currentStudent.avatar || getInitials(currentStudent.name)
-    : '?';
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <View style={[styles.outerContainer, { paddingTop: Math.max(insets.top, spacing.sm) }]}>
       <View style={styles.innerContainer}>
-        {/* Baris Atas: Brand Identitas & Tombol Reset Demo */}
+        {/* Baris Atas: Brand Identitas & Tombol Logout */}
         <View style={styles.topBar}>
           <View style={styles.brandRow}>
             <View style={styles.logoBadge}>
@@ -71,267 +51,115 @@ export const Header = () => {
             <View style={styles.brandTextWrap}>
               <View style={styles.titleRow}>
                 <Text style={styles.brandTitle}>LabSync</Text>
-                <View style={styles.sprintBadge}>
-                  <Text style={styles.sprintBadgeText}>Sprint 1</Text>
+                <View
+                  style={[
+                    styles.roleBadge,
+                    isAssistant ? styles.roleBadgeAssistant : styles.roleBadgeStudent,
+                  ]}
+                >
+                  <Ionicons
+                    name={isAssistant ? 'shield-checkmark' : 'school'}
+                    size={12}
+                    color={isAssistant ? colors.assistantTagDark : colors.primaryDark}
+                  />
+                  <Text
+                    style={[
+                      styles.roleBadgeText,
+                      isAssistant ? styles.roleBadgeTextAssistant : styles.roleBadgeTextStudent,
+                    ]}
+                  >
+                    {isAssistant ? 'Asisten' : 'Praktikan'}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.brandSubtitle}>Sistem Presensi Praktikum</Text>
+              <Text style={styles.brandSubtitle}>Sistem Presensi & Perizinan Praktikum</Text>
             </View>
           </View>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Reset Demo Data"
-            onPress={resetDemoData}
-            style={({ pressed }) => [styles.resetBtn, pressed && styles.resetBtnPressed]}
+            accessibilityLabel="Keluar dari akun"
+            disabled={loggingOut}
+            onPress={handleLogout}
+            style={({ pressed }) => [
+              styles.logoutBtn,
+              pressed && styles.logoutBtnPressed,
+              loggingOut && styles.logoutBtnDisabled,
+            ]}
           >
-            <Ionicons name="refresh-outline" size={15} color={colors.neutralDark} />
-            <Text style={styles.resetBtnText}>Reset Demo</Text>
+            {loggingOut ? (
+              <ActivityIndicator size="small" color={colors.dangerDark} />
+            ) : (
+              <>
+                <Ionicons name="log-out-outline" size={15} color={colors.dangerDark} />
+                <Text style={styles.logoutBtnText}>Keluar</Text>
+              </>
+            )}
           </Pressable>
         </View>
 
-        {/* Segmented Role Switcher: Sudut Pandang Asisten vs Praktikan */}
-        <View style={styles.segmentedContainer} accessibilityRole="tablist">
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isAssistant }}
-            onPress={() => {
-              if (!isAssistant) setCurrentRole('assistant');
-            }}
-            style={[styles.segmentTab, isAssistant && styles.segmentTabActiveAssistant]}
-          >
-            <Ionicons
-              name={isAssistant ? 'shield-checkmark' : 'shield-checkmark-outline'}
-              size={16}
-              color={isAssistant ? colors.assistantTagDark : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.segmentTabText,
-                isAssistant && styles.segmentTabTextActiveAssistant,
-              ]}
-              numberOfLines={1}
-            >
-              Sudut Pandang Asisten
-            </Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="tab"
-            accessibilityState={{ selected: !isAssistant }}
-            onPress={() => {
-              if (isAssistant) setCurrentRole('student');
-            }}
-            style={[styles.segmentTab, !isAssistant && styles.segmentTabActiveStudent]}
-          >
-            <Ionicons
-              name={!isAssistant ? 'school' : 'school-outline'}
-              size={16}
-              color={!isAssistant ? colors.primaryDark : colors.textMuted}
-            />
-            <Text
-              style={[
-                styles.segmentTabText,
-                !isAssistant && styles.segmentTabTextActiveStudent,
-              ]}
-              numberOfLines={1}
-            >
-              Sudut Pandang Praktikan
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Bar Identitas Pengguna Aktif (Persona Selector) */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ganti identitas pengguna aktif"
-          onPress={() => setPickerModalVisible(true)}
-          style={({ pressed }) => [styles.personaBar, pressed && styles.personaBarPressed]}
-        >
-          <View style={styles.personaLeft}>
+        {/* Bar Identitas Pengguna Login */}
+        <View style={styles.profileBar}>
+          <View style={styles.profileLeft}>
             <View
               style={[
                 styles.avatarCircle,
                 isAssistant ? styles.avatarAssistant : styles.avatarStudent,
               ]}
             >
-              <Text style={styles.avatarText}>{activeAvatar}</Text>
+              <Text style={styles.avatarText}>{avatarText}</Text>
             </View>
-            <View style={styles.personaTextWrap}>
-              <View style={styles.personaRoleRow}>
-                <Text style={styles.personaLabel}>
-                  {isAssistant ? 'ASISTEN AKTIF' : 'PRAKTIKAN AKTIF'}
-                </Text>
-              </View>
-              <Text style={styles.personaName} numberOfLines={1}>
-                {activeName}
+            <View style={styles.profileTextWrap}>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {currentUser.name}
               </Text>
-              <Text style={styles.personaSub} numberOfLines={1}>
-                {activeSubtitle}
+              <Text style={styles.profileSub} numberOfLines={1}>
+                {subtitle}
               </Text>
             </View>
           </View>
 
-          <View style={styles.changePill}>
-            <Ionicons name="swap-horizontal-outline" size={14} color={colors.primary} />
-            <Text style={styles.changePillText}>Ganti Akun</Text>
-          </View>
-        </Pressable>
-      </View>
-
-      {/* Modal Pemilih Identitas (Account / Persona Picker Modal) */}
-      <Modal
-        visible={pickerModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPickerModalVisible(false)}
-      >
-        <View style={styles.modalRoot}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setPickerModalVisible(false)}
-            accessibilityLabel="Tutup modal pemilih identitas"
+          <View
+            style={[
+              styles.statusPill,
+              syncError ? styles.statusPillError : styles.statusPillOnline,
+            ]}
           >
-            <View style={styles.modalBackdrop} />
-          </Pressable>
-
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTextWrap}>
-                <Text style={styles.modalTitle}>
-                  Pilih Identitas {isAssistant ? 'Asisten Praktikum' : 'Praktikan'}
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  Simulasikan skenario pengguna berbeda tanpa perlu login ulang.
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Tutup"
-                onPress={() => setPickerModalVisible(false)}
-                hitSlop={8}
-                style={styles.closeIconBtn}
-              >
-                <Ionicons name="close" size={20} color={colors.neutralDark} />
-              </Pressable>
-            </View>
-
-            <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
-              {isAssistant ? (
-                assistants.map((asprak) => {
-                  const selected = currentAssistant.id === asprak.id;
-                  return (
-                    <Pressable
-                      key={asprak.id}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      onPress={() => {
-                        setCurrentAssistant(asprak);
-                        setPickerModalVisible(false);
-                      }}
-                      style={[styles.pickerItem, selected && styles.pickerItemActiveAssistant]}
-                    >
-                      <View style={[styles.avatarCircle, styles.avatarAssistant]}>
-                        <Text style={styles.avatarText}>
-                          {asprak.avatar || getInitials(asprak.name)}
-                        </Text>
-                      </View>
-                      <View style={styles.pickerTextWrap}>
-                        <Text style={styles.pickerName}>{asprak.name}</Text>
-                        <Text style={styles.pickerMeta}>{asprak.role}</Text>
-                      </View>
-                      {selected ? (
-                        <View style={styles.activeTagAssistant}>
-                          <Ionicons
-                            name="checkmark-circle"
-                            size={15}
-                            color={colors.assistantTagDark}
-                          />
-                          <Text style={styles.activeTagTextAssistant}>Aktif</Text>
-                        </View>
-                      ) : null}
-                    </Pressable>
-                  );
-                })
-              ) : (
-                <>
-                  {students.map((mhs) => {
-                    const selected = currentStudent?.id === mhs.id;
-                    return (
-                      <Pressable
-                        key={mhs.id}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        onPress={() => {
-                          setCurrentStudent(mhs);
-                          setPickerModalVisible(false);
-                        }}
-                        style={[styles.pickerItem, selected && styles.pickerItemActiveStudent]}
-                      >
-                        <View style={[styles.avatarCircle, styles.avatarStudent]}>
-                          <Text style={styles.avatarText}>
-                            {mhs.avatar || getInitials(mhs.name)}
-                          </Text>
-                        </View>
-                        <View style={styles.pickerTextWrap}>
-                          <Text style={styles.pickerName}>{mhs.name}</Text>
-                          <Text style={styles.pickerMeta}>
-                            NIM {mhs.nim} • Kelas {mhs.className}
-                          </Text>
-                        </View>
-                        {selected ? (
-                          <View style={styles.activeTagStudent}>
-                            <Ionicons name="checkmark-circle" size={15} color={colors.primaryDark} />
-                            <Text style={styles.activeTagTextStudent}>Aktif</Text>
-                          </View>
-                        ) : null}
-                      </Pressable>
-                    );
-                  })}
-
-                  {/* Opsi Edge Case: Tanpa Identitas (untuk menguji empty state modul praktikan) */}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: currentStudent === null }}
-                    onPress={() => {
-                      setCurrentStudent(null);
-                      setPickerModalVisible(false);
-                    }}
-                    style={[
-                      styles.pickerItem,
-                      currentStudent === null && styles.pickerItemActiveStudent,
-                    ]}
-                  >
-                    <View style={[styles.avatarCircle, styles.avatarNeutral]}>
-                      <Ionicons name="person-remove-outline" size={15} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.pickerTextWrap}>
-                      <Text style={styles.pickerName}>Tanpa Identitas (Uji Edge Case)</Text>
-                      <Text style={styles.pickerMeta}>
-                        Simulasi kondisi belum ada akun praktikan terpilih
-                      </Text>
-                    </View>
-                    {currentStudent === null ? (
-                      <View style={styles.activeTagStudent}>
-                        <Ionicons name="checkmark-circle" size={15} color={colors.primaryDark} />
-                        <Text style={styles.activeTagTextStudent}>Aktif</Text>
-                      </View>
-                    ) : null}
-                  </Pressable>
-                </>
-              )}
-            </ScrollView>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setPickerModalVisible(false)}
-              style={styles.closeModalBtn}
+            <View
+              style={[
+                styles.statusDot,
+                syncError ? styles.statusDotError : styles.statusDotOnline,
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                syncError ? styles.statusTextError : styles.statusTextOnline,
+              ]}
             >
-              <Text style={styles.closeModalBtnText}>Tutup</Text>
-            </Pressable>
+              {syncError ? 'Gangguan' : 'Terhubung'}
+            </Text>
           </View>
         </View>
-      </Modal>
+
+        {/* Global Sync Error Banner (SRS-04) */}
+        {syncError ? (
+          <View style={styles.errorBanner} accessibilityLiveRegion="polite">
+            <Ionicons name="cloud-offline-outline" size={16} color={colors.dangerDark} />
+            <Text style={styles.errorBannerText} numberOfLines={2}>
+              {syncError}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tutup pesan gangguan"
+              onPress={() => setSyncError(null)}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={16} color={colors.dangerDark} />
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 };
@@ -353,7 +181,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   brandRow: {
     flexDirection: 'row',
@@ -384,15 +212,28 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginRight: spacing.sm,
   },
-  sprintBadge: {
-    backgroundColor: colors.primarySoft,
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radius.pill,
   },
-  sprintBadgeText: {
+  roleBadgeAssistant: {
+    backgroundColor: colors.assistantTagBg,
+  },
+  roleBadgeStudent: {
+    backgroundColor: colors.primarySoft,
+  },
+  roleBadgeText: {
+    marginLeft: 4,
     fontSize: 11,
     fontWeight: '700',
+  },
+  roleBadgeTextAssistant: {
+    color: colors.assistantTagDark,
+  },
+  roleBadgeTextStudent: {
     color: colors.primaryDark,
   },
   brandSubtitle: {
@@ -400,66 +241,31 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
-  resetBtn: {
+  logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutralSoft,
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.danger,
     paddingHorizontal: spacing.md,
     paddingVertical: 7,
     borderRadius: radius.sm,
+    minWidth: 78,
+    justifyContent: 'center',
   },
-  resetBtnPressed: {
+  logoutBtnPressed: {
     opacity: 0.75,
   },
-  resetBtnText: {
+  logoutBtnDisabled: {
+    opacity: 0.6,
+  },
+  logoutBtnText: {
     marginLeft: 5,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.neutralDark,
+    color: colors.dangerDark,
   },
-  segmentedContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.neutralSoft,
-    padding: 4,
-    borderRadius: radius.md,
-    marginBottom: spacing.sm,
-  },
-  segmentTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.sm,
-  },
-  segmentTabActiveAssistant: {
-    backgroundColor: colors.assistantTagBg,
-    borderWidth: 1,
-    borderColor: colors.assistantTag,
-  },
-  segmentTabActiveStudent: {
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  segmentTabText: {
-    marginLeft: 6,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  segmentTabTextActiveAssistant: {
-    fontWeight: '700',
-    color: colors.assistantTagDark,
-  },
-  segmentTabTextActiveStudent: {
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
-  personaBar: {
+  profileBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -470,10 +276,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  personaBarPressed: {
-    backgroundColor: colors.neutralSoft,
-  },
-  personaLeft: {
+  profileLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
@@ -492,179 +295,80 @@ const styles = StyleSheet.create({
   avatarStudent: {
     backgroundColor: colors.primary,
   },
-  avatarNeutral: {
-    backgroundColor: colors.neutral,
-  },
   avatarText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },
-  personaTextWrap: {
+  profileTextWrap: {
     flex: 1,
     marginLeft: spacing.sm,
   },
-  personaRoleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  personaLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: 0.4,
-  },
-  personaName: {
+  profileName: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.text,
   },
-  personaSub: {
+  profileSub: {
     fontSize: 12,
     color: colors.textMuted,
   },
-  changePill: {
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: radius.pill,
-  },
-  changePillText: {
-    marginLeft: 4,
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 460,
-    maxHeight: '85%',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    ...theme.shadows.modal,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  modalHeaderTextWrap: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  modalSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-  closeIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.neutralSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pickerScroll: {
-    flexGrow: 0,
-  },
-  pickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.sm,
   },
-  pickerItemActiveAssistant: {
-    borderColor: colors.assistantTag,
-    backgroundColor: colors.assistantTagBg,
+  statusPillOnline: {
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
   },
-  pickerItemActiveStudent: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primarySoft,
+  statusPillError: {
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
-  pickerTextWrap: {
-    flex: 1,
-    marginLeft: spacing.md,
-    marginRight: spacing.sm,
-  },
-  pickerName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  pickerMeta: {
-    marginTop: 2,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  activeTagAssistant: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  statusDot: {
+    width: 7,
+    height: 7,
     borderRadius: radius.pill,
+    marginRight: 5,
   },
-  activeTagTextAssistant: {
-    marginLeft: 4,
+  statusDotOnline: {
+    backgroundColor: colors.success,
+  },
+  statusDotError: {
+    backgroundColor: colors.danger,
+  },
+  statusText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.assistantTagDark,
   },
-  activeTagStudent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
+  statusTextOnline: {
+    color: colors.successDark,
   },
-  activeTagTextStudent: {
-    marginLeft: 4,
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primaryDark,
+  statusTextError: {
+    color: colors.dangerDark,
   },
-  closeModalBtn: {
+  errorBanner: {
     marginTop: spacing.sm,
-    minHeight: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.neutralSoft,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  closeModalBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.neutralDark,
+  errorBannerText: {
+    flex: 1,
+    marginHorizontal: spacing.sm,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.dangerDark,
   },
 });
 
 export default Header;
-
