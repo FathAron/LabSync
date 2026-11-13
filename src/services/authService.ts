@@ -8,6 +8,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { ApiErrorCode, ApiResponse, UserProfile, UserRole } from '../types/models';
 import { auth, db, isFirebaseConfigured } from './firebaseConfig';
 
+let isRegistering = false;
+
 export interface RegisterPayload {
   name: string;
   email: string;
@@ -154,6 +156,7 @@ export const registerUser = async (payload: RegisterPayload): Promise<ApiRespons
   }
 
   try {
+    isRegistering = true;
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     const uid = credential.user.uid;
     const nowIso = new Date().toISOString();
@@ -184,6 +187,8 @@ export const registerUser = async (payload: RegisterPayload): Promise<ApiRespons
   } catch (error) {
     const mapped = mapFirebaseError(error, 'Registrasi gagal. Silakan coba lagi.');
     return makeError(mapped.message, mapped.errorCode);
+  } finally {
+    isRegistering = false;
   }
 };
 
@@ -244,6 +249,9 @@ export const subscribeAuthState = (
   return onAuthStateChanged(
     auth,
     async (firebaseUser) => {
+      if (isRegistering) {
+        return;
+      }
       if (!firebaseUser) {
         onChange(null);
         return;

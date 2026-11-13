@@ -48,19 +48,19 @@ const AppShell = () => {
       {currentUser ? <Header /> : null}
 
       <View style={styles.content}>
-        {!currentUser ? (
+        <View style={[styles.layer, currentUser && currentRole === 'assistant' ? styles.hidden : null]}>
           <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
+            <Stack.Screen name="student" />
           </Stack>
-        ) : currentRole === 'assistant' ? (
+        </View>
+
+        {currentUser && currentRole === 'assistant' ? (
           <View style={styles.layer}>
             <AssistantView />
           </View>
-        ) : (
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="student" />
-          </Stack>
-        )}
+        ) : null}
       </View>
 
       <FeedbackToast />
@@ -85,6 +85,9 @@ const styles = StyleSheet.create({
   },
   layer: {
     flex: 1,
+  },
+  hidden: {
+    display: 'none',
   },
   loadingRoot: {
     flex: 1,
