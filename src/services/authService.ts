@@ -68,10 +68,26 @@ const mapFirebaseError = (error: unknown, fallbackMessage: string): { message: s
     case 'auth/network-request-failed':
     case 'unavailable':
       return { message: 'Koneksi jaringan bermasalah. Periksa internet Anda dan coba lagi.', errorCode: 'NETWORK_ERROR' };
+    case 'auth/operation-not-allowed':
+    case 'auth/configuration-not-found':
+      return {
+        message: 'Metode autentikasi Email/Password belum diaktifkan di Firebase Console.',
+        errorCode: 'FORBIDDEN',
+      };
+    case 'failed-precondition':
+    case 'not-found':
+      return {
+        message: 'Database Cloud Firestore belum dibuat atau belum siap di Firebase Console.',
+        errorCode: 'INTERNAL_ERROR',
+      };
     case 'permission-denied':
       return { message: 'Anda tidak memiliki izin untuk mengakses data ini.', errorCode: 'FORBIDDEN' };
     default:
-      return { message: fallbackMessage, errorCode: 'INTERNAL_ERROR' };
+      console.warn('[authService] Unmapped Firebase error:', code, error);
+      return {
+        message: code ? `${fallbackMessage} (${code})` : fallbackMessage,
+        errorCode: 'INTERNAL_ERROR',
+      };
   }
 };
 
