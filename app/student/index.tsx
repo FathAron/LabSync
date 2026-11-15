@@ -1,7 +1,7 @@
 // TASK-04 - Tab "Sesi Praktikum".
 
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import {ActivityIndicator,FlatList,StyleSheet,Text,View,} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AttendanceModal from '../../src/features/student/components/AttendanceModal';
@@ -33,6 +33,7 @@ const SessionsScreen = () => {
     isAttended,
     submitAttendance,
     externalNotify,
+    dataLoading,
   } = useStudentModule();
 
   const [selectedSessionId, setSelectedSessionId] = useState<Id | null>(null);
@@ -86,6 +87,20 @@ const SessionsScreen = () => {
     }
     return result;
   };
+
+  if (dataLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+        />
+        <Text style={styles.loadingText}>
+          Memuat jadwal praktikum...
+        </Text>
+      </View>
+    );
+  }
 
   if (!student) {
     return (
@@ -199,6 +214,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: colors.primaryDark,
+  },
+    loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+
+  loadingText: {
+    color: '#64748b',
+    fontSize: 13,
+    marginTop: 16,
+    textAlign: 'center',
   },
 });
 
