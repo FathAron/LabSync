@@ -1,67 +1,176 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
+
+    function signedIn() {
       return request.auth != null;
     }
 
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAllowedAssistantEmail() {
+      return signedIn() && (
+        request.auth.token.email == 'adelia.clearesta.1705@gmail.com' ||
+        request.auth.token.email == 'aronsorimudajp@gmail.com' ||
+        request.auth.token.email == 'wipinsmg@gmail.com' ||
+        request.auth.token.email == 'naufaldwi1710@gmail.com' ||
+        request.auth.token.email == 'naufaldwiy1710@gmail.com'
+      );
+    }
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasCurrentUserDoc() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function isAssistant() {
-      return isSignedIn() && userDoc().role == 'assistant';
+      return hasCurrentUserDoc() &&
+        currentUserDoc().data.role == 'assistant';
     }
 
     function isStudent() {
-      return isSignedIn() && userDoc().role == 'student';
+      return hasCurrentUserDoc() &&
+        currentUserDoc().data.role == 'student';
     }
 
-    match /users/{uid} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == uid
-        && request.resource.data.uid == uid
-        && request.resource.data.role in ['student', 'assistant'];
-      allow update: if isSignedIn() && (
-        (request.auth.uid == uid && request.resource.data.role == resource.data.role)
-        || (isAssistant() && resource.data.role == 'student'
-            && request.resource.data.role == resource.data.role)
+    function sameClassAsCurrentUser(className) {
+      return hasCurrentUserDoc() &&
+        currentUserDoc().data.className == className;
+    }
+
+    function sessionDoc(sessionId) {
+      return get(/databases/$(database)/documents/sessions/$(sessionId));
+    }
+
+    function sessionExists(sessionId) {
+      return exists(/databases/$(database)/documents/sessions/$(sessionId));
+    }
+
+    // =========================
+    // USERS
+    // =========================
+    match /users/{userId} {
+      allow create: if isSelf(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.id == userId
+        && request.resource.data.email == request.auth.token.email
+        && (
+          request.resource.data.role == 'student' ||
+          (
+            request.resource.data.role == 'assistant' &&
+            isAllowedAssistantEmail()
+          )
+        );
+
+      allow read: if signedIn() && (
+        isSelf(userId) ||
+        isAssistant()
       );
+
+      allow update: if signedIn() && (
+        (
+          isSelf(userId)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.email == resource.data.email
+          && request.resource.data.role == resource.data.role
+        ) || (
+          isAssistant()
+          && resource.data.role == 'student'
+          && request.resource.data.role == resource.data.role
+        )
+      );
+
       allow delete: if false;
     }
 
+    // =========================
+    // CLASSES
+    // =========================
     match /classes/{classId} {
-      allow read: if isSignedIn();
+      allow read: if isAssistant() || (
+        isStudent() && (
+          resource.data.name == currentUserDoc().data.className ||
+          request.auth.uid in resource.data.studentIds
+        )
+      );
+
       allow create, update, delete: if isAssistant();
     }
 
+    // =========================
+    // SESSIONS
+    // =========================
     match /sessions/{sessionId} {
-      allow read: if isSignedIn();
+      allow read: if isAssistant() || (
+        isStudent() &&
+        sameClassAsCurrentUser(resource.data.className)
+      );
+
       allow create, update, delete: if isAssistant();
     }
 
+    // =========================
+    // ATTENDANCE
+    // =========================
     match /attendance/{attendanceId} {
-      allow read: if isAssistant() || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow read: if isAssistant() || (
+        isStudent() &&
+        resource.data.studentId == request.auth.uid
+      );
+
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.id == attendanceId
         && attendanceId == request.resource.data.sessionId + '_' + request.auth.uid
-        && get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'ACTIVE'
+        && sessionExists(request.resource.data.sessionId)
+        && sessionDoc(request.resource.data.sessionId).data.status == 'ACTIVE'
         && !exists(/databases/$(database)/documents/attendance/$(attendanceId));
+
       allow update, delete: if false;
     }
 
+    // =========================
+    // LEAVE REQUESTS
+    // =========================
     match /leaveRequests/{leaveId} {
-      allow read: if isAssistant() || (isStudent() && resource.data.studentId == request.auth.uid);
+      allow read: if isAssistant() || (
+        isStudent() &&
+        resource.data.studentId == request.auth.uid
+      );
+
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.status == 'PENDING';
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.reviewedBy == null
+        && request.resource.data.reviewedByName == null
+        && request.resource.data.reviewedAt == null;
+
       allow update: if isAssistant()
-        && request.resource.data.status in ['APPROVED', 'REJECTED']
+        && resource.data.status == 'PENDING'
         && request.resource.data.studentId == resource.data.studentId
         && request.resource.data.sessionId == resource.data.sessionId
-        && request.resource.data.reason == resource.data.reason;
+        && request.resource.data.reason == resource.data.reason
+        && (
+          request.resource.data.status == 'APPROVED' ||
+          request.resource.data.status == 'REJECTED'
+        );
+
       allow delete: if false;
+    }
+
+    // =========================
+    // DEFAULT DENY
+    // =========================
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
-

@@ -1,152 +1,482 @@
-// TASK-02 / Integrasi Shell - Layar Sudut Pandang Asisten (AssistantView)
-// Terhubung ke AppContext (openSession, closeSession, getAttendanceForSession)
-// untuk memfasilitasi peralihan peran dan pengujian skenario Sprint 1 secara utuh.
 
 import React, { useMemo, useState } from 'react';
+
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
+
 import { useApp } from '../context/AppContext';
-import type { Session } from '../data/mockData';
+
+import type {
+  CreateSessionInput,
+  Session,
+} from '../types/models';
+
 import {
   STATUS_META,
   formatDateID,
   formatTimeRange,
-  formatTimeWIB,
 } from '../features/student/studentUtils';
-import { CONTENT_MAX_WIDTH, colors, radius, spacing, theme } from '../styles/theme';
+
+import {
+  CONTENT_MAX_WIDTH,
+  colors,
+  radius,
+  spacing,
+} from '../styles/theme';
+
+import { usePracticum } from '../hooks/usePracticum';
+
 import SessionControlModal from '../features/assistant/components/SessionControlModal';
 import AttendanceSummaryModal from '../features/assistant/components/AttendanceSummaryModal';
+import SessionFormModal from '../features/assistant/components/SessionFormModal';
+import ClassManagementModal from '../features/assistant/components/ClassManagementModal';
+
+import AssistantLeaveSection from '../features/leave/components/AssistantLeaveSection';
 
 type ConfirmAction = {
   type: 'open' | 'close';
   session: Session;
 } | null;
 
+type AssistantTab = 'practicum' | 'leave';
+
 export const AssistantView = () => {
+  const { showToast, syncError } = useApp();
+
+  // ==========================================
+  // FIRESTORE DATA AND ACTIONS
+  // ==========================================
+
   const {
+    classes,
+    students,
     sessions,
     attendanceList,
+    dataLoading,
+
+    createSession,
+    updateSession,
+    deleteSession,
     openSession,
     closeSession,
-    getAttendanceForSession,
-  } = useApp();
 
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
-  const [recapSessionId, setRecapSessionId] = useState<string | null>(null);
+    createClass,
+    updateClass,
+    deleteClass,
+    assignStudentToClass,
+
+    getAttendanceForSession,
+  } = usePracticum();
+
+  // ==========================================
+  // LOCAL UI STATE
+  // ==========================================
+
+  const [activeTab, setActiveTab] =
+    useState<AssistantTab>('practicum');
+
+  const [confirmAction, setConfirmAction] =
+    useState<ConfirmAction>(null);
+
+  const [recapSessionId, setRecapSessionId] =
+    useState<string | null>(null);
+
+  const [sessionFormVisible, setSessionFormVisible] =
+    useState(false);
+
+  const [editingSession, setEditingSession] =
+    useState<Session | null>(null);
+
+  const [classManagementVisible, setClassManagementVisible] =
+    useState(false);
+
+  // ==========================================
+  // STATISTICS
+  // ==========================================
 
   const stats = useMemo(() => {
-    const activeCount = sessions.filter((s) => s.status === 'ACTIVE').length;
-    const closedCount = sessions.filter((s) => s.status === 'CLOSED').length;
-    const totalPresent = attendanceList.length;
-    return { activeCount, closedCount, totalPresent };
+    const activeCount = sessions.filter(
+      (item) => item.status === 'ACTIVE'
+    ).length;
+
+    const closedCount = sessions.filter(
+      (item) => item.status === 'CLOSED'
+    ).length;
+
+    return {
+      activeCount,
+      closedCount,
+      totalPresent: attendanceList.length,
+    };
   }, [sessions, attendanceList]);
 
+  // ==========================================
+  // ATTENDANCE RECAP
+  // ==========================================
+
   const recapSession = useMemo(
-    () => sessions.find((s) => s.id === recapSessionId) ?? null,
+    () =>
+      sessions.find(
+        (item) => item.id === recapSessionId
+      ) ?? null,
     [sessions, recapSessionId]
   );
 
   const recapAttendees = useMemo(
-    () => (recapSession ? getAttendanceForSession(recapSession.id) : []),
+    () =>
+      recapSession
+        ? getAttendanceForSession(recapSession.id)
+        : [],
     [recapSession, getAttendanceForSession]
   );
 
-  const handleConfirm = () => {
+  // ==========================================
+  // OPEN / CLOSE SESSION
+  // ==========================================
+
+  const handleConfirm = async () => {
     if (!confirmAction) return;
-    if (confirmAction.type === 'open') {
-      openSession(confirmAction.session.id);
-    } else {
-      closeSession(confirmAction.session.id);
+
+    const result =
+      confirmAction.type === 'open'
+        ? await openSession(confirmAction.session.id)
+        : await closeSession(confirmAction.session.id);
+
+    if (result.ok) {
+      showToast(result.message, 'success');
+      setConfirmAction(null);
     }
-    setConfirmAction(null);
   };
+
+  // ==========================================
+  // CREATE / UPDATE SESSION
+  // ==========================================
+
+  const handleSessionSubmit = async (
+    input: CreateSessionInput
+  ) => {
+    const result = editingSession
+      ? await updateSession(editingSession.id, input)
+      : await createSession(input);
+
+    if (result.ok) {
+      showToast(result.message, 'success');
+
+      setSessionFormVisible(false);
+      setEditingSession(null);
+    }
+
+    return result;
+  };
+
+  const handleAddSession = () => {
+    setEditingSession(null);
+    setSessionFormVisible(true);
+  };
+
+  const handleEditSession = (session: Session) => {
+    setEditingSession(session);
+    setSessionFormVisible(true);
+  };
+
+  const handleCloseSessionForm = () => {
+    setSessionFormVisible(false);
+    setEditingSession(null);
+  };
+
+  // ==========================================
+  // DELETE SESSION
+  // ==========================================
+
+  const handleDeleteSession = (session: Session) => {
+    Alert.alert(
+      'Hapus Sesi Praktikum?',
+      `Apakah kamu yakin ingin menghapus ${session.courseName} - ${session.moduleCode} untuk kelas ${session.className}?`,
+      [
+        {
+          text: 'Batal',
+          style: 'cancel',
+        },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            const result = await deleteSession(session.id);
+
+            if (result.ok) {
+              showToast(result.message, 'success');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ==========================================
+  // HEADER
+  // ==========================================
 
   const renderHeader = () => (
     <View style={styles.headerBlock}>
-      {/* Ringkasan Statistik Sesi */}
+      {/* MANAGEMENT BUTTONS */}
+      <View style={styles.managementRow}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setClassManagementVisible(true)}
+          style={styles.managementButton}
+        >
+          <Ionicons
+            name="people-outline"
+            size={17}
+            color={colors.primary}
+          />
+
+          <Text style={styles.managementButtonText}>
+            Kelola Kelas
+          </Text>
+
+          <View style={styles.buttonCount}>
+            <Text style={styles.buttonCountText}>
+              {classes.length}
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleAddSession}
+          style={styles.addSessionButton}
+        >
+          <Ionicons
+            name="add"
+            size={19}
+            color="#FFFFFF"
+          />
+
+          <Text style={styles.addSessionText}>
+            Tambah Sesi
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* STATISTICS */}
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { borderColor: colors.primary }]}>
-          <Text style={[styles.statValue, { color: colors.primary }]}>{stats.activeCount}</Text>
-          <Text style={styles.statLabel}>Sesi Aktif</Text>
+          <Text style={[styles.statValue, { color: colors.primary }]}>
+            {stats.activeCount}
+          </Text>
+
+          <Text style={styles.statLabel}>
+            Sesi Aktif
+          </Text>
         </View>
+
         <View style={[styles.statCard, { borderColor: colors.success }]}>
-          <Text style={[styles.statValue, { color: colors.success }]}>{stats.totalPresent}</Text>
-          <Text style={styles.statLabel}>Total Hadir</Text>
+          <Text style={[styles.statValue, { color: colors.success }]}>
+            {stats.totalPresent}
+          </Text>
+
+          <Text style={styles.statLabel}>
+            Total Hadir
+          </Text>
         </View>
+
         <View style={[styles.statCard, { borderColor: colors.neutral }]}>
-          <Text style={[styles.statValue, { color: colors.neutralDark }]}>{stats.closedCount}</Text>
-          <Text style={styles.statLabel}>Sesi Selesai</Text>
+          <Text style={[styles.statValue, { color: colors.neutralDark }]}>
+            {stats.closedCount}
+          </Text>
+
+          <Text style={styles.statLabel}>
+            Sesi Selesai
+          </Text>
         </View>
       </View>
 
+      {/* SESSION LIST TITLE */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Daftar Sesi Praktikum</Text>
+        <Text style={styles.sectionTitle}>
+          Daftar Sesi Praktikum
+        </Text>
+
         <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>{sessions.length} Sesi</Text>
+          <Text style={styles.countBadgeText}>
+            {sessions.length} Sesi
+          </Text>
         </View>
       </View>
+
+      {syncError ? (
+        <View style={styles.syncError}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={17}
+            color={colors.dangerDark}
+          />
+
+          <Text style={styles.syncErrorText}>
+            {syncError}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 
-  const renderSessionItem = ({ item }: { item: Session }) => {
-    const meta = STATUS_META[item.status];
-    const attendees = getAttendanceForSession(item.id);
-    const presentCount = attendees.length;
-    const capacity = item.totalStudents || 30;
-    const percentage = Math.min(100, Math.round((presentCount / capacity) * 100));
+  // ==========================================
+  // SESSION CARD
+  // ==========================================
 
-    const dateText = formatDateID(item.date) ?? item.date;
-    const timeText = formatTimeRange(item.startTime, item.endTime) ?? item.time;
-    const subtitle = [item.moduleCode, item.moduleTitle].filter(Boolean).join(' - ');
+  const renderSessionItem = ({
+    item,
+  }: {
+    item: Session;
+  }) => {
+    const meta = STATUS_META[item.status];
+
+    const attendees = getAttendanceForSession(item.id);
+
+    const presentCount = attendees.length;
+    const capacity = Math.max(0, item.totalStudents);
+
+    const percentage =
+      capacity > 0
+        ? Math.min(
+            100,
+            Math.round((presentCount / capacity) * 100)
+          )
+        : 0;
+
+    const dateText =
+      formatDateID(item.date) ?? item.date;
+
+    const timeText =
+      formatTimeRange(
+        item.startTime,
+        item.endTime
+      ) ?? item.time;
+
+    const subtitle = [
+      item.moduleCode,
+      item.moduleTitle,
+    ]
+      .filter(Boolean)
+      .join(' - ');
 
     return (
       <View style={styles.card}>
+        {/* CLASS AND STATUS */}
         <View style={styles.cardTopRow}>
           <View style={styles.classPill}>
-            <Text style={styles.classPillText}>Kelas {item.className}</Text>
+            <Text style={styles.classPillText}>
+              Kelas {item.className}
+            </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-            <View style={[styles.statusDot, { backgroundColor: meta.dot }]} />
-            <Text style={[styles.statusText, { color: meta.fg }]}>{meta.label}</Text>
+
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: meta.bg },
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: meta.dot },
+              ]}
+            />
+
+            <Text
+              style={[
+                styles.statusText,
+                { color: meta.fg },
+              ]}
+            >
+              {meta.label}
+            </Text>
           </View>
         </View>
 
-        <Text style={styles.courseTitle}>{item.courseName}</Text>
-        {subtitle ? <Text style={styles.moduleSubtitle}>{subtitle}</Text> : null}
+        {/* SESSION INFORMATION */}
+        <Text style={styles.courseTitle}>
+          {item.courseName}
+        </Text>
+
+        {subtitle ? (
+          <Text style={styles.moduleSubtitle}>
+            {subtitle}
+          </Text>
+        ) : null}
 
         <View style={styles.infoList}>
           <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
-            <Text style={styles.infoText}>{dateText}</Text>
+            <Ionicons
+              name="calendar-outline"
+              size={15}
+              color={colors.textMuted}
+            />
+
+            <Text style={styles.infoText}>
+              {dateText} ({item.day})
+            </Text>
           </View>
+
           <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={15} color={colors.textMuted} />
-            <Text style={styles.infoText}>{timeText}</Text>
+            <Ionicons
+              name="time-outline"
+              size={15}
+              color={colors.textMuted}
+            />
+
+            <Text style={styles.infoText}>
+              {timeText}
+            </Text>
           </View>
+
           <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={15} color={colors.textMuted} />
-            <Text style={styles.infoText}>{item.room}</Text>
+            <Ionicons
+              name="location-outline"
+              size={15}
+              color={colors.textMuted}
+            />
+
+            <Text style={styles.infoText}>
+              {item.room}
+            </Text>
           </View>
+
           <View style={styles.infoRow}>
-            <Ionicons name="person-outline" size={15} color={colors.textMuted} />
-            <Text style={styles.infoText}>Asisten: {item.assistantName}</Text>
+            <Ionicons
+              name="person-outline"
+              size={15}
+              color={colors.textMuted}
+            />
+
+            <Text style={styles.infoText}>
+              Asisten: {item.assistantName}
+            </Text>
           </View>
         </View>
 
-        {/* Progress Bar Kehadiran */}
+        {/* ATTENDANCE PROGRESS */}
         <View style={styles.progressSection}>
           <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Kehadiran Praktikan</Text>
+            <Text style={styles.progressLabel}>
+              Kehadiran Praktikan
+            </Text>
+
             <Text style={styles.progressValue}>
-              {presentCount} / {capacity} Mahasiswa ({percentage}%)
+              {presentCount} / {capacity} Praktikan ({percentage}%)
             </Text>
           </View>
+
           <View style={styles.progressTrack}>
             <View
               style={[
@@ -154,45 +484,121 @@ export const AssistantView = () => {
                 {
                   width: `${percentage}%`,
                   backgroundColor:
-                    item.status === 'ACTIVE' ? colors.success : colors.primary,
+                    item.status === 'ACTIVE'
+                      ? colors.success
+                      : colors.primary,
                 },
               ]}
             />
           </View>
         </View>
 
-        {/* Tombol Aksi Kontekstual Asisten */}
+        {/* SESSION ACTIONS */}
         <View style={styles.actionRow}>
           {item.status === 'PENDING' ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setConfirmAction({ type: 'open', session: item })}
-              style={[styles.btn, styles.btnSuccess]}
-            >
-              <Ionicons name="play-circle-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.btnPrimaryText}>Buka Sesi Praktikum</Text>
-            </Pressable>
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  setConfirmAction({
+                    type: 'open',
+                    session: item,
+                  })
+                }
+                style={[styles.btn, styles.btnSuccess]}
+              >
+                <Ionicons
+                  name="play-circle-outline"
+                  size={18}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.btnPrimaryText}>
+                  Buka Sesi
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleEditSession(item)}
+                style={[styles.btn, styles.btnSecondary]}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={17}
+                  color={colors.neutralDark}
+                />
+
+                <Text style={styles.btnSecondaryText}>
+                  Ubah
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => handleDeleteSession(item)}
+                style={[styles.btn, styles.btnDangerOutline]}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={16}
+                  color={colors.danger}
+                />
+
+                <Text style={styles.btnDangerOutlineText}>
+                  Hapus
+                </Text>
+              </Pressable>
+            </>
           ) : null}
 
           {item.status === 'ACTIVE' ? (
             <>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setRecapSessionId(item.id)}
-                style={[styles.btn, styles.btnPrimary, { flex: 1.4 }]}
+                onPress={() =>
+                  setRecapSessionId(item.id)
+                }
+                style={[
+                  styles.btn,
+                  styles.btnPrimary,
+                  { flex: 1.4 },
+                ]}
               >
-                <Ionicons name="people-outline" size={17} color="#FFFFFF" />
+                <Ionicons
+                  name="people-outline"
+                  size={17}
+                  color="#FFFFFF"
+                />
+
                 <Text style={styles.btnPrimaryText}>
                   Rekap Presensi ({presentCount})
                 </Text>
               </Pressable>
+
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setConfirmAction({ type: 'close', session: item })}
-                style={[styles.btn, styles.btnDangerOutline, { flex: 1 }]}
+                onPress={() =>
+                  setConfirmAction({
+                    type: 'close',
+                    session: item,
+                  })
+                }
+                style={[
+                  styles.btn,
+                  styles.btnDangerOutline,
+                  { flex: 1 },
+                ]}
               >
-                <Ionicons name="lock-closed-outline" size={16} color={colors.danger} />
-                <Text style={styles.btnDangerOutlineText}>Tutup Sesi</Text>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={16}
+                  color={colors.danger}
+                />
+
+                <Text style={styles.btnDangerOutlineText}>
+                  Tutup Sesi
+                </Text>
               </Pressable>
             </>
           ) : null}
@@ -200,10 +606,20 @@ export const AssistantView = () => {
           {item.status === 'CLOSED' ? (
             <Pressable
               accessibilityRole="button"
-              onPress={() => setRecapSessionId(item.id)}
-              style={[styles.btn, styles.btnSecondary]}
+              onPress={() =>
+                setRecapSessionId(item.id)
+              }
+              style={[
+                styles.btn,
+                styles.btnSecondary,
+              ]}
             >
-              <Ionicons name="document-text-outline" size={17} color={colors.neutralDark} />
+              <Ionicons
+                name="document-text-outline"
+                size={17}
+                color={colors.neutralDark}
+              />
+
               <Text style={styles.btnSecondaryText}>
                 Lihat Rekap Akhir ({presentCount} Hadir)
               </Text>
@@ -214,25 +630,135 @@ export const AssistantView = () => {
     );
   };
 
+  // ==========================================
+  // MAIN VIEW
+  // ==========================================
+
   return (
     <View style={styles.container}>
-      <FlatList
-        data={sessions}
-        keyExtractor={(item) => item.id}
-        renderItem={renderSessionItem}
-        ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {/* ASSISTANT NAVIGATION */}
+      <View style={styles.tabContainer}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setActiveTab('practicum')}
+          style={[
+            styles.tabButton,
+            activeTab === 'practicum' &&
+              styles.tabButtonActive,
+          ]}
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={17}
+            color={
+              activeTab === 'practicum'
+                ? colors.primary
+                : colors.textMuted
+            }
+          />
 
-      {/* Modal konfirmasi sesi — TASK-03 */}
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'practicum' &&
+                styles.tabTextActive,
+            ]}
+          >
+            Praktikum
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setActiveTab('leave')}
+          style={[
+            styles.tabButton,
+            activeTab === 'leave' &&
+              styles.tabButtonActive,
+          ]}
+        >
+          <Ionicons
+            name="document-text-outline"
+            size={17}
+            color={
+              activeTab === 'leave'
+                ? colors.primary
+                : colors.textMuted
+            }
+          />
+
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'leave' &&
+                styles.tabTextActive,
+            ]}
+          >
+            Pengajuan Izin
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* PRACTICUM TAB */}
+      {activeTab === 'practicum' ? (
+        <View style={styles.content}>
+          {dataLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="large"
+                color={colors.primary}
+              />
+
+              <Text style={styles.loadingText}>
+                Memuat data praktikum dari Firestore...
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={sessions}
+              keyExtractor={(item) => item.id}
+              renderItem={renderSessionItem}
+              ListHeaderComponent={renderHeader}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons
+                    name="calendar-outline"
+                    size={36}
+                    color={colors.textMuted}
+                  />
+
+                  <Text style={styles.emptyTitle}>
+                    Belum Ada Sesi Praktikum
+                  </Text>
+
+                  <Text style={styles.emptyText}>
+                    Tambahkan kelas dan sesi praktikum untuk
+                    mulai mengelola jadwal serta presensi.
+                  </Text>
+                </View>
+              }
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      ) : (
+        /* LEAVE TAB */
+        <View style={styles.content}>
+          <AssistantLeaveSection />
+        </View>
+      )}
+
+      {/* SESSION CONFIRMATION MODAL */}
       <SessionControlModal
         visible={confirmAction !== null}
         session={confirmAction?.session ?? null}
         action={confirmAction?.type ?? 'open'}
         attendanceCount={
           confirmAction
-            ? getAttendanceForSession(confirmAction.session.id).length
+            ? getAttendanceForSession(
+                confirmAction.session.id
+              ).length
             : 0
         }
         capacity={confirmAction?.session.totalStudents ?? 0}
@@ -240,16 +766,41 @@ export const AssistantView = () => {
         onConfirm={handleConfirm}
       />
 
-      {/* Modal rekap presensi — TASK-03 */}
+      {/* ATTENDANCE RECAP MODAL */}
       <AttendanceSummaryModal
         visible={recapSession !== null}
         session={recapSession}
         records={recapAttendees}
         onClose={() => setRecapSessionId(null)}
       />
-          </View>
-        );
-      };
+
+      {/* CREATE / UPDATE SESSION MODAL */}
+      <SessionFormModal
+        visible={sessionFormVisible}
+        session={editingSession}
+        classes={classes}
+        onClose={handleCloseSessionForm}
+        onSubmit={handleSessionSubmit}
+      />
+
+      {/* CLASS MANAGEMENT MODAL */}
+      <ClassManagementModal
+        visible={classManagementVisible}
+        classes={classes}
+        students={students}
+        onClose={() => setClassManagementVisible(false)}
+        onCreateClass={createClass}
+        onUpdateClass={updateClass}
+        onDeleteClass={deleteClass}
+        onAssignStudentToClass={assignStudentToClass}
+      />
+    </View>
+  );
+};
+
+// ==========================================
+// STYLES
+// ==========================================
 
 const styles = StyleSheet.create({
   container: {
@@ -257,23 +808,124 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: CONTENT_MAX_WIDTH,
     alignSelf: 'center',
+    backgroundColor: colors.background,
   },
+
+  content: {
+    flex: 1,
+  },
+
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+
+  tabButtonActive: {
+    borderBottomColor: colors.primary,
+  },
+
+  tabText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  tabTextActive: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+
   listContent: {
     flexGrow: 1,
     padding: spacing.lg,
     paddingBottom: spacing.xl * 2,
   },
+
   headerBlock: {
     marginBottom: spacing.sm,
   },
 
-  // Statistik
+  managementRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+
+  managementButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+  },
+
+  managementButtonText: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
+  buttonCount: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+
+  buttonCountText: {
+    color: colors.primaryDark,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  addSessionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+  },
+
+  addSessionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+
   statsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.lg,
   },
+
   statCard: {
     flex: 1,
     minWidth: 96,
@@ -285,10 +937,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   statValue: {
     fontSize: 22,
     fontWeight: '800',
   },
+
   statLabel: {
     marginTop: 2,
     fontSize: 12,
@@ -297,7 +951,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Header daftar sesi
   sectionHeader: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -306,6 +959,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+
   sectionTitle: {
     flex: 1,
     minWidth: 0,
@@ -313,19 +967,37 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.text,
   },
+
   countBadge: {
     backgroundColor: colors.neutralSoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.pill,
   },
+
   countBadgeText: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.neutralDark,
   },
 
-  // Kartu sesi
+  syncError: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.md,
+  },
+
+  syncErrorText: {
+    flex: 1,
+    color: colors.dangerDark,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -334,6 +1006,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
+
   cardTopRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -342,6 +1015,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.sm,
   },
+
   classPill: {
     backgroundColor: colors.assistantTagBg,
     paddingHorizontal: 10,
@@ -349,11 +1023,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignSelf: 'flex-start',
   },
+
   classPillText: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.assistantTagDark,
   },
+
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,22 +1038,26 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     flexShrink: 0,
   },
+
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: radius.pill,
     marginRight: 6,
   },
+
   statusText: {
     fontSize: 12,
     fontWeight: '700',
   },
+
   courseTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: colors.text,
     lineHeight: 23,
   },
+
   moduleSubtitle: {
     marginTop: 2,
     fontSize: 14,
@@ -385,16 +1065,17 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 
-  // Informasi sesi
   infoList: {
     marginTop: spacing.md,
     gap: spacing.sm,
   },
+
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
+
   infoText: {
     flex: 1,
     minWidth: 0,
@@ -403,13 +1084,13 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 
-  // Progress presensi
   progressSection: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+
   progressHeader: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -418,6 +1099,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginBottom: 6,
   },
+
   progressLabel: {
     flex: 1,
     minWidth: 110,
@@ -425,32 +1107,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
   },
+
   progressValue: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.text,
   },
+
   progressTrack: {
     height: 7,
     backgroundColor: colors.neutralSoft,
     borderRadius: radius.pill,
     overflow: 'hidden',
   },
+
   progressFill: {
     height: '100%',
     borderRadius: radius.pill,
   },
 
-  // Tombol aksi
   actionRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.md,
   },
+
   btn: {
     flexGrow: 1,
-    flexBasis: 140,
+    flexBasis: 110,
     minWidth: 0,
     minHeight: 44,
     borderRadius: radius.md,
@@ -462,23 +1147,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: 6,
   },
+
   btnPrimary: {
     backgroundColor: colors.primary,
   },
+
   btnSuccess: {
     backgroundColor: colors.success,
   },
-  btnDanger: {
-    backgroundColor: colors.danger,
-  },
+
   btnDangerOutline: {
     backgroundColor: colors.dangerSoft,
     borderWidth: 1,
     borderColor: colors.danger,
   },
+
   btnSecondary: {
     backgroundColor: colors.neutralSoft,
   },
+
   btnPrimaryText: {
     flexShrink: 1,
     fontSize: 13,
@@ -486,6 +1173,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
   },
+
   btnDangerOutlineText: {
     flexShrink: 1,
     fontSize: 13,
@@ -493,6 +1181,7 @@ const styles = StyleSheet.create({
     color: colors.dangerDark,
     textAlign: 'center',
   },
+
   btnSecondaryText: {
     flexShrink: 1,
     fontSize: 13,
@@ -501,94 +1190,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Ikon konfirmasi pada AppModal
-  confirmIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.pill,
+  loadingContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    alignSelf: 'center',
-  },
-  confirmFooter: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+    padding: spacing.xl,
   },
 
-  // Daftar rekap kehadiran
-  attendeeItem: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
+  loadingText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
-  attendeeIndex: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
+
+  emptyContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: spacing.xl,
+    marginTop: spacing.xl,
   },
-  attendeeIndexText: {
-    fontSize: 12,
+
+  emptyTitle: {
+    fontSize: 15,
     fontWeight: '800',
-    color: colors.primaryDark,
-  },
-  attendeeInfo: {
-    flex: 1,
-    flexBasis: 150,
-    minWidth: 0,
-  },
-  attendeeName: {
-    fontSize: 14,
-    fontWeight: '700',
     color: colors.text,
+    marginTop: spacing.md,
   },
-  attendeeNim: {
+
+  emptyText: {
     fontSize: 12,
+    lineHeight: 18,
     color: colors.textMuted,
-    marginTop: 2,
-  },
-  attendeeNotes: {
-    marginTop: 2,
-    fontSize: 12,
-    color: colors.primaryDark,
-    fontWeight: '600',
-  },
-  attendeeTimeBadge: {
-    backgroundColor: colors.successSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    marginLeft: 'auto',
-  },
-  attendeeTimeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.successDark,
-  },
-  recapCloseButton: {
-  flex: 0,
-  width: '100%',
-  height: 44,
-  minHeight: 44,
-  padding: 0,
-  margin: 0,
-  borderRadius: radius.md,
-  alignSelf: 'stretch',
-  alignItems: 'center',
-  justifyContent: 'center',
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });
 
 export default AssistantView;
-
