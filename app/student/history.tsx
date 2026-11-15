@@ -1,13 +1,45 @@
 // TASK-04 - Tab "Riwayat Presensi".
 
-import { FlatList, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
 import HistoryItem from '../../src/features/student/components/HistoryItem';
 import StudentEmptyState from '../../src/features/student/components/StudentEmptyState';
-import { CONTENT_MAX_WIDTH, spacing } from '../../src/features/student/studentTokens';
+
+import {
+  CONTENT_MAX_WIDTH,
+  spacing,
+} from '../../src/features/student/studentTokens';
+
 import { useStudentModule } from '../../src/features/student/useStudentModule';
 
 const HistoryScreen = () => {
-  const { student, historyItems } = useStudentModule();
+  const {
+    student,
+    historyItems,
+    dataLoading,
+  } = useStudentModule();
+
+  // Tampilkan loading saat data Firestore dimuat.
+  if (dataLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator
+          size="large"
+          color="#2563EB"
+        />
+
+        <Text style={styles.loadingText}>
+          Memuat riwayat presensi...
+        </Text>
+      </View>
+    );
+  }
 
   if (!student) {
     return (
@@ -24,9 +56,16 @@ const HistoryScreen = () => {
       <FlatList
         data={historyItems}
         keyExtractor={(item, index) =>
-          item.record.id !== undefined ? String(item.record.id) : `history-${index}`
+          item.record.id !== undefined
+            ? String(item.record.id)
+            : `history-${index}`
         }
-        renderItem={({ item }) => <HistoryItem record={item.record} session={item.session} />}
+        renderItem={({ item }) => (
+          <HistoryItem
+            record={item.record}
+            session={item.session}
+          />
+        )}
         ListEmptyComponent={
           <StudentEmptyState
             icon="document-text-outline"
@@ -42,8 +81,32 @@ const HistoryScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center' },
-  listContent: { padding: spacing.lg, paddingBottom: spacing.xl * 2, flexGrow: 1 },
+  container: {
+    flex: 1,
+    width: '100%',
+    maxWidth: CONTENT_MAX_WIDTH,
+    alignSelf: 'center',
+  },
+
+  listContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xl * 2,
+    flexGrow: 1,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+
+  loadingText: {
+    color: '#64748B',
+    fontSize: 13,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
 });
 
 export default HistoryScreen;
