@@ -8,6 +8,31 @@ type AIErrorReporter = (
   message: string
 ) => void;
 
+interface SentimentPrediction {
+  label: string | null;
+  status: string;
+  scores: number[] | null;
+  scoreType: string;
+  experimental: boolean;
+}
+
+type SentimentClassifier = (text: string) => SentimentPrediction;
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createSentimentClassifier } = require('../../model-edom/sentiment') as {
+  createSentimentClassifier: (model: unknown) => SentimentClassifier;
+};
+const edomModel: unknown = require('../../model-edom/model-edom.json');
+
+let cachedClassifier: SentimentClassifier | null = null;
+
+const getClassifier = (): SentimentClassifier => {
+  if (!cachedClassifier) {
+    cachedClassifier = createSentimentClassifier(edomModel);
+  }
+  return cachedClassifier;
+};
+
 // Reporter didaftarkan oleh useLeave agar service tidak perlu
 // mengimpor React Context secara langsung.
 let aiErrorReporter: AIErrorReporter | null = null;
@@ -16,46 +41,6 @@ export const setAIErrorReporter = (
   reporter: AIErrorReporter | null
 ): void => {
   aiErrorReporter = reporter;
-};
-
-type UnknownRecord = Record<string, unknown>;
-
-const asRecord = (value: unknown): UnknownRecord | null => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as UnknownRecord;
-};
-
-const firstText = (values: unknown[]): string | null => {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return null;
-};
-
-const parseConfidence = (values: unknown[]): number | null => {
-  for (const value of values) {
-    const numberValue =
-      typeof value === 'number'
-        ? value
-        : typeof value === 'string' && value.trim()
-          ? Number(value)
-          : Number.NaN;
-
-    if (!Number.isFinite(numberValue) || numberValue < 0) {
-      continue;
-    }
-
-    if (numberValue <= 1) return numberValue;
-    if (numberValue <= 100) return numberValue / 100;
-  }
-
-  return null;
 };
 
 const reportAIError = (message: string): void => {
@@ -71,19 +56,17 @@ const unavailableResponse = (
 ): ApiResponse<AIClassificationResult> => {
   reportAIError(message);
 
-  const now = new Date().toISOString();
-
   return {
     ok: false,
     success: false,
     message,
     errorCode: 'AI_UNAVAILABLE',
     data: {
-      category: 'Belum Terklasifikasi (Layanan AI Tidak Tersedia)',
+      category: 'Belum Terklasifikasi (Model AI Tidak Tersedia)',
       confidence: null,
       status: 'UNAVAILABLE',
       errorMessage: message,
-      classifiedAt: now,
+      classifiedAt: new Date().toISOString(),
     },
   };
 };
@@ -108,65 +91,41 @@ const failedResponse = (
   };
 };
 
-const parseClassification = (
-  payload: unknown
-): { category: string; confidence: number | null } | null => {
-  const root = asRecord(payload);
+const computeConfidence = (scores: number[] | null): number | null => {
+  if (!Array.isArray(scores) || scores.length === 0) {
+    return null;
+  }
 
-  if (!root) return null;
+  const valid = scores.every((value) => typeof value === 'number' && Number.isFinite(value));
+  if (!valid) {
+    return null;
+  }
 
-  const data = asRecord(root.data);
-  const prediction = asRecord(root.prediction);
-  const dataPrediction = asRecord(data?.prediction);
+  const maxScore = Math.max(...scores);
+  const exps = scores.map((score) => Math.exp(score - maxScore));
+  const sumExps = exps.reduce((acc, val) => acc + val, 0);
 
-  const category = firstText([
-    root.category,
-    root.label,
-    typeof root.prediction === 'string' ? root.prediction : undefined,
+  if (sumExps <= 0 || !Number.isFinite(sumExps)) {
+    return null;
+  }
 
-    data?.category,
-    data?.label,
-    typeof data?.prediction === 'string'
-      ? data.prediction
-      : undefined,
+  const maxProb = Math.max(...exps) / sumExps;
+  return Number(maxProb.toFixed(4));
+};
 
-    prediction?.category,
-    prediction?.label,
-    prediction?.class,
-
-    dataPrediction?.category,
-    dataPrediction?.label,
-    dataPrediction?.class,
-  ]);
-
-  if (!category) return null;
-
-  const confidence = parseConfidence([
-    root.confidence,
-    root.score,
-    data?.confidence,
-    data?.score,
-    prediction?.confidence,
-    prediction?.score,
-    dataPrediction?.confidence,
-    dataPrediction?.score,
-  ]);
-
-  return { category, confidence };
+const formatCategoryLabel = (rawLabel: string): string => {
+  const trimmed = rawLabel.trim();
+  if (!trimmed) return 'Tidak Diketahui';
+  const capitalized = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  return `Sentimen: ${capitalized}`;
 };
 
 export const classifyLeaveReason = async (
   reason: string
 ): Promise<ApiResponse<AIClassificationResult>> => {
-  const endpoint = process.env.EXPO_PUBLIC_AI_API_URL?.trim();
+  const trimmedReason = reason.trim();
 
-  if (!endpoint) {
-    return unavailableResponse(
-      'Layanan AI belum dikonfigurasi. Pengajuan izin tetap dapat disimpan.'
-    );
-  }
-
-  if (!reason.trim()) {
+  if (!trimmedReason) {
     return {
       ok: false,
       success: false,
@@ -175,74 +134,34 @@ export const classifyLeaveReason = async (
     };
   }
 
-  const controller = new AbortController();
-  let timedOut = false;
-
-  const timeoutId = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
-  }, 10000);
-
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        text: reason.trim(),
-      }),
-      signal: controller.signal,
-    });
+    const classify = getClassifier();
+    const prediction = classify(trimmedReason);
 
-    if (!response.ok) {
-      return unavailableResponse(
-        `Layanan AI mengalami gangguan (HTTP ${response.status}). Pengajuan izin tetap dapat disimpan.`
-      );
-    }
-
-    let payload: unknown;
-
-    try {
-      payload = await response.json();
-    } catch {
+    if (!prediction.label) {
       return failedResponse(
-        'Respons AI tidak dapat dibaca. Pengajuan izin tetap dapat disimpan.'
+        'Teks alasan belum dikenali kosakata model-edom. Pengajuan izin tetap dapat disimpan.'
       );
     }
 
-    const classification = parseClassification(payload);
-
-    if (!classification) {
-      return failedResponse(
-        'AI tidak memberikan kategori alasan yang valid.'
-      );
-    }
+    const category = formatCategoryLabel(prediction.label);
+    const confidence = computeConfidence(prediction.scores);
 
     return {
       ok: true,
       success: true,
-      message: 'Klasifikasi alasan izin berhasil dilakukan.',
+      message: 'Klasifikasi teks menggunakan model-edom berhasil dilakukan.',
       data: {
-        category: classification.category,
-        confidence: classification.confidence,
+        category,
+        confidence,
         status: 'SUCCESS',
-        rawLabel: classification.category,
+        rawLabel: prediction.label,
         classifiedAt: new Date().toISOString(),
       },
     };
   } catch {
-    if (timedOut) {
-      return unavailableResponse(
-        'Layanan AI tidak merespons dalam 10 detik. Pengajuan izin tetap dapat disimpan.'
-      );
-    }
-
     return unavailableResponse(
-      'Tidak dapat terhubung ke layanan AI. Periksa koneksi internet. Pengajuan izin tetap dapat disimpan.'
+      'Model-edom gagal dimuat. Pengajuan izin tetap dapat disimpan.'
     );
-  } finally {
-    clearTimeout(timeoutId);
   }
 };
