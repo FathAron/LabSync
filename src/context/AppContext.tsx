@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 import {
   INITIAL_ATTENDANCE,
   INITIAL_SESSIONS,
@@ -22,49 +23,40 @@ import {
   subscribeAuthState,
   type RegisterPayload,
 } from '../services/authService';
+import {
+  registerPushTokenForCurrentUser,
+  disablePushTokenForCurrentUser,
+} from '../services/notificationService';
 import type { ApiResponse, UserProfile, UserRole } from '../types/models';
-
 export type ToastTone = FeedbackType | 'warning' | 'danger';
-
 export interface FeedbackToastState {
   key: number;
   type: ToastTone;
   message: string;
   withHistoryLink?: boolean;
 }
-
 export interface RecordAttendanceResult {
   success: boolean;
   ok: boolean;
   message: string;
   record?: MockAttendanceRecord;
 }
-
 export interface AppContextValue {
-  // Auth & User State
   currentUser: UserProfile | null;
   currentRole: UserRole | null;
   authLoading: boolean;
   syncError: string | null;
   setSyncError: (message: string | null) => void;
-
-  // Kompatibilitas Sprint 1 (diisi otomatis dari currentUser)
   currentAssistant: UserProfile | null;
   currentStudent: UserProfile | null;
-
-  // Toast / Feedback & Error Reporting (SRS-04)
   feedbackToast: FeedbackToastState | null;
   showToast: (message: string, type?: ToastTone, withHistoryLink?: boolean) => void;
   hideToast: () => void;
   notify: (feedback: { type: FeedbackType; message: string; withHistoryLink?: boolean }) => void;
   reportError: (source: 'auth' | 'firestore' | 'ai', message: string) => void;
-
-  // Auth Actions (SRS-01, SRS-02)
   login: (email: string, password: string) => Promise<ApiResponse<UserProfile>>;
   register: (payload: RegisterPayload) => Promise<ApiResponse<UserProfile>>;
   logout: () => Promise<ApiResponse<void>>;
-
-  // Kompatibilitas Sprint 1 untuk AssistantView & centralState sebelum modul Wipin di-merge
   sessions: MockSession[];
   attendanceList: MockAttendanceRecord[];
   openSession: (sessionId: Id) => boolean;
@@ -73,27 +65,20 @@ export interface AppContextValue {
   hasStudentAttended: (sessionId: Id, studentId: Id) => boolean;
   getAttendanceForSession: (sessionId: Id) => MockAttendanceRecord[];
 }
-
 const AppContext = createContext<AppContextValue | null>(null);
-
 const TOAST_DURATION_MS = 4000;
-
 const getCurrentWIBString = (): string => {
   return formatTimeWIB(new Date()) ?? '00:00 WIB';
 };
-
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [feedbackToast, setFeedbackToast] = useState<FeedbackToastState | null>(null);
-
-  // State kompatibilitas Sprint 1
   const [sessions, setSessions] = useState<MockSession[]>(INITIAL_SESSIONS);
   const [attendanceList, setAttendanceList] = useState<MockAttendanceRecord[]>(INITIAL_ATTENDANCE);
-
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const lastPushWarningRef = useRef<string | null>(null);
   const hideToast = useCallback(() => {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
@@ -101,7 +86,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setFeedbackToast(null);
   }, []);
-
   const showToast = useCallback(
     (message: string, type: ToastTone = 'success', withHistoryLink = false) => {
       if (toastTimerRef.current) {
@@ -120,7 +104,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     []
   );
-
   const notify = useCallback(
     (feedback: { type: FeedbackType; message: string; withHistoryLink?: boolean }) => {
       showToast(
@@ -131,7 +114,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [showToast]
   );
-
   const reportError = useCallback(
     (source: 'auth' | 'firestore' | 'ai', message: string) => {
       const cleanMessage = message.trim() || 'Terjadi gangguan pada layanan.';
@@ -148,7 +130,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [showToast]
   );
-
   useEffect(() => {
     const unsubscribe = subscribeAuthState((user, errorMessage) => {
       setCurrentUser(user);
@@ -160,7 +141,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setSyncError(null);
       }
     });
-
     return () => {
       unsubscribe();
       if (toastTimerRef.current) {
@@ -168,7 +148,56 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
   }, [showToast]);
+  // Registrasi token setelah login dan sinkronisasi ulang ketika aplikasi aktif kembali.
+  // Pada foreground refresh, izin hanya diperiksa; dialog izin tidak dimunculkan berulang.
+  useEffect(() => {
+    const uid = currentUser?.uid;
+    if (!uid) return undefined;
 
+    let cancelled = false;
+
+    const synchronizePushToken = async (requestPermission: boolean) => {
+      try {
+        const result = await registerPushTokenForCurrentUser({
+          requestPermission,
+        });
+
+        if (!cancelled && !result.success) {
+          console.warn('[Push Notification]', result.message);
+
+          if (lastPushWarningRef.current !== result.message) {
+            lastPushWarningRef.current = result.message;
+            showToast(result.message, 'warning');
+          }
+        } else if (result.success) {
+          lastPushWarningRef.current = null;
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          console.warn(
+            '[Push Notification] Gagal menyinkronkan token:',
+            error
+          );
+        }
+      }
+    };
+
+    void synchronizePushToken(true);
+
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      (nextState) => {
+        if (nextState === 'active') {
+          void synchronizePushToken(false);
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      appStateSubscription.remove();
+    };
+  }, [currentUser?.uid, showToast]);
   const login = useCallback(
     async (email: string, password: string): Promise<ApiResponse<UserProfile>> => {
       const res = await loginUser(email, password);
@@ -183,7 +212,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [reportError, showToast]
   );
-
   const register = useCallback(
     async (payload: RegisterPayload): Promise<ApiResponse<UserProfile>> => {
       const res = await registerUser(payload);
@@ -198,8 +226,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [reportError, showToast]
   );
-
+  // Nonaktifkan token perangkat sebelum Firebase melakukan logout.
   const logout = useCallback(async (): Promise<ApiResponse<void>> => {
+    try {
+      const tokenResult = await disablePushTokenForCurrentUser();
+      if (!tokenResult.success) {
+        console.warn('[Push Notification]', tokenResult.message);
+      }
+    } catch (error) {
+      console.warn('[Push Notification] Gagal menonaktifkan token:', error);
+    }
     const res = await logoutUser();
     if (res.ok) {
       setCurrentUser(null);
@@ -210,8 +246,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
     return res;
   }, [reportError, showToast]);
-
-  // --- Helper Kompatibilitas Sprint 1 ---
   const openSession = useCallback(
     (sessionId: Id): boolean => {
       const target = sessions.find((s) => sameId(s.id, sessionId));
@@ -236,7 +270,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [sessions, showToast]
   );
-
   const closeSession = useCallback(
     (sessionId: Id): boolean => {
       const target = sessions.find((s) => sameId(s.id, sessionId));
@@ -257,7 +290,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [sessions, showToast]
   );
-
   const hasStudentAttended = useCallback(
     (sessionId: Id, studentId: Id): boolean => {
       return attendanceList.some(
@@ -266,7 +298,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [attendanceList]
   );
-
   const recordAttendance = useCallback(
     (sessionId: Id, studentInput: unknown, notes = ''): RecordAttendanceResult => {
       const fallbackStudent = currentUser?.role === 'student' ? currentUser : null;
@@ -278,12 +309,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           message: 'Identitas praktikan belum tersedia.',
         };
       }
-
       const targetSession = sessions.find((s) => sameId(s.id, sessionId));
       if (!targetSession) {
         return { success: false, ok: false, message: 'Data sesi tidak ditemukan.' };
       }
-
       if (
         targetSession.className !== '' &&
         parsedStudent.className !== '' &&
@@ -291,7 +320,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       ) {
         return { success: false, ok: false, message: 'Sesi ini bukan untuk kelasmu.' };
       }
-
       if (targetSession.status !== 'ACTIVE') {
         return {
           success: false,
@@ -302,7 +330,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               : 'Sesi praktikum telah ditutup.',
         };
       }
-
       if (hasStudentAttended(sessionId, parsedStudent.id)) {
         return {
           success: false,
@@ -310,7 +337,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           message: 'Anda sudah melakukan presensi pada sesi ini.',
         };
       }
-
       const nowIso = new Date().toISOString();
       const attendedAt = formatTimeWIB(nowIso) ?? getCurrentWIBString();
       const newRecord: MockAttendanceRecord = {
@@ -324,7 +350,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         status: 'Hadir',
         notes: typeof notes === 'string' ? notes.trim() : '',
       };
-
       setAttendanceList((prev) => [newRecord, ...prev]);
       return {
         success: true,
@@ -335,20 +360,17 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [currentUser, hasStudentAttended, sessions]
   );
-
   const getAttendanceForSession = useCallback(
     (sessionId: Id): MockAttendanceRecord[] => {
       return attendanceList.filter((item) => sameId(item.sessionId, sessionId));
     },
     [attendanceList]
   );
-
   const currentRole: UserRole | null = currentUser?.role ?? null;
   const currentAssistant: UserProfile | null =
     currentUser?.role === 'assistant' ? currentUser : null;
   const currentStudent: UserProfile | null =
     currentUser?.role === 'student' ? currentUser : null;
-
   const value = useMemo<AppContextValue>(
     () => ({
       currentUser,
@@ -398,10 +420,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       getAttendanceForSession,
     ]
   );
-
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
-
 export const useApp = (): AppContextValue => {
   const context = useContext(AppContext);
   if (!context) {

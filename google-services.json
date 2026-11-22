@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "638825130164",
+    "project_id": "labsync-b6934",
+    "storage_bucket": "labsync-b6934.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:638825130164:android:4a288c43b7bf94d0244fe1",
+        "android_client_info": {
+          "package_name": "com.labsync.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC619medJy1NpilSKtRlzLw3rK8KohwmuI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
