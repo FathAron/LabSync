@@ -1,18 +1,251 @@
-import { useEffect } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { useCallback, useEffect, useRef } from 'react';
+import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
 import { FeedbackToast } from '../src/components/FeedbackToast';
 import { Header } from '../src/components/Header';
 import { AppProvider, useApp } from '../src/context/AppContext';
 import { AssistantView } from '../src/screens/AssistantView';
 import { colors, spacing } from '../src/styles/theme';
 
+type PendingNotification =
+  | {
+      type: 'SESSION_OPENED';
+      sessionId: string;
+    }
+  | {
+      type: 'PATH';
+      path: string;
+    };
+
+const isAllowedNotificationPath = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) {
+    return false;
+  }
+
+  const pathname = value.split('?')[0];
+
+  return [
+    '/student',
+    '/student/leave',
+    '/student/history',
+  ].includes(pathname);
+};
+
+// Notification handler hanya untuk Android dan iOS.
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
+
 const AppShell = () => {
   const router = useRouter();
   const segments = useSegments();
-  const { currentUser, currentRole, authLoading } = useApp();
 
+  const {
+    currentUser,
+    currentRole,
+    authLoading,
+  } = useApp();
+
+  const pendingNotification = useRef<PendingNotification | null>(null);
+
+  // Navigasi berdasarkan data notifikasi.
+  const navigateFromNotification = useCallback(
+    (target: PendingNotification) => {
+      // Tunggu autentikasi selesai jika aplikasi belum siap.
+      if (authLoading || !currentUser) {
+        pendingNotification.current = target;
+        return;
+      }
+
+      if (target.type === 'SESSION_OPENED') {
+        if (currentRole !== 'student') {
+          console.warn(
+            '[LabSync] Notifikasi sesi hanya ditujukan kepada praktikan.'
+          );
+          return;
+        }
+
+        console.log(
+          '[LabSync] Membuka sesi dari notifikasi:',
+          target.sessionId
+        );
+
+        router.push({
+          pathname: '/student',
+          params: {
+            sessionId: target.sessionId,
+          },
+        });
+
+        return;
+      }
+
+      // Notifikasi Sprint 3 hanya membuka area praktikan.
+      if (
+        target.path.startsWith('/student') &&
+        currentRole !== 'student'
+      ) {
+        console.warn(
+          '[LabSync] Notifikasi praktikan diabaikan untuk akun non-praktikan.'
+        );
+        return;
+      }
+
+      router.push(target.path as Href);
+    },
+    [authLoading, currentUser, currentRole, router]
+  );
+
+  // Membaca data ketika pengguna mengetuk notifikasi.
+  const handleNotificationResponse = useCallback(
+    (response: Notifications.NotificationResponse) => {
+      const notificationData =
+        response.notification.request.content.data as
+          | Record<string, unknown>
+          | undefined;
+
+      console.log(
+        '[LabSync] Notification payload:',
+        notificationData
+      );
+
+      if (
+        notificationData?.type === 'SESSION_OPENED' &&
+        typeof notificationData.sessionId === 'string'
+      ) {
+        navigateFromNotification({
+          type: 'SESSION_OPENED',
+          sessionId: notificationData.sessionId,
+        });
+      } else {
+        // SCHEDULE_CHANGED dan keputusan izin menggunakan route internal.
+        const notificationPath = notificationData?.url;
+        const fallbackPath =
+          notificationData?.type === 'SCHEDULE_CHANGED'
+            ? '/student'
+            : notificationData?.type === 'LEAVE_APPROVED' ||
+                notificationData?.type === 'LEAVE_REJECTED'
+              ? '/student/leave'
+              : null;
+        const targetPath = isAllowedNotificationPath(notificationPath)
+          ? notificationPath
+          : fallbackPath;
+
+        if (targetPath) {
+          navigateFromNotification({
+            type: 'PATH',
+            path: targetPath,
+          });
+        }
+      }
+
+      if (Platform.OS !== 'web') {
+        Notifications.clearLastNotificationResponse();
+      }
+    },
+    [navigateFromNotification]
+  );
+
+  // Listener notifikasi khusus perangkat native.
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    const receivedSubscription =
+      Notifications.addNotificationReceivedListener(
+        (notification) => {
+          console.log(
+            '[LabSync] Notifikasi diterima:',
+            notification.request.content.title
+          );
+        }
+      );
+
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener(
+        handleNotificationResponse
+      );
+
+    // Menangani notifikasi ketika aplikasi sebelumnya tertutup.
+    const lastResponse =
+      Notifications.getLastNotificationResponse();
+
+    if (lastResponse) {
+      console.log(
+        '[LabSync] Membaca notifikasi terakhir.'
+      );
+
+      handleNotificationResponse(lastResponse);
+    }
+
+    return () => {
+      receivedSubscription.remove();
+      responseSubscription.remove();
+    };
+  }, [handleNotificationResponse]);
+
+  // Jalankan notifikasi tertunda setelah login selesai.
+  useEffect(() => {
+    if (authLoading || !currentUser) {
+      return;
+    }
+
+    const pending = pendingNotification.current;
+
+    if (!pending) {
+      return;
+    }
+
+    pendingNotification.current = null;
+
+    if (pending.type === 'SESSION_OPENED') {
+      if (currentRole !== 'student') {
+        return;
+      }
+
+      console.log(
+        '[LabSync] Menjalankan navigasi tertunda:',
+        pending.sessionId
+      );
+
+      router.push({
+        pathname: '/student',
+        params: {
+          sessionId: pending.sessionId,
+        },
+      });
+
+      return;
+    }
+
+    if (
+      pending.path.startsWith('/student') &&
+      currentRole !== 'student'
+    ) {
+      return;
+    }
+
+    router.push(pending.path as Href);
+  }, [authLoading, currentUser, currentRole, router]);
+
+  // Pengaturan navigasi berdasarkan role.
   useEffect(() => {
     if (authLoading) return;
 
@@ -31,13 +264,26 @@ const AppShell = () => {
     } else if (currentRole === 'assistant' && inAuthGroup) {
       router.replace('/');
     }
-  }, [authLoading, currentRole, currentUser, router, segments]);
+  }, [
+    authLoading,
+    currentRole,
+    currentUser,
+    router,
+    segments,
+  ]);
 
   if (authLoading) {
     return (
       <View style={styles.loadingRoot}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Memuat sesi LabSync...</Text>
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+        />
+
+        <Text style={styles.loadingText}>
+          Memuat sesi LabSync...
+        </Text>
+
         <FeedbackToast />
       </View>
     );
@@ -48,7 +294,14 @@ const AppShell = () => {
       {currentUser ? <Header /> : null}
 
       <View style={styles.content}>
-        <View style={[styles.layer, currentUser && currentRole === 'assistant' ? styles.hidden : null]}>
+        <View
+          style={[
+            styles.layer,
+            currentUser && currentRole === 'assistant'
+              ? styles.hidden
+              : null,
+          ]}
+        >
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />

@@ -39,3 +39,11 @@ backend-ai/.env
 # generated native folders
 /ios
 /android
+
+# Firebase Admin SDK private keys
+*adminsdk*.json
+*serviceAccount*.json
+*service-account*.json
+# Local notification backend credentials
+local-notification-backend/.env
+local-notification-backend/*.log

@@ -1,0 +1,24 @@
+{
+  "name": "local-notification-backend",
+  "version": "1.1.0",
+  "description": "Trusted LabSync notification worker for Expo Push Service and Firebase Admin SDK",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test",
+    "check": "node --check index.js && node --check notificationLogic.js && node --check test/notificationLogic.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "labsync",
+    "firebase-admin",
+    "expo-push"
+  ],
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^14.5.1"
+  }
+}
