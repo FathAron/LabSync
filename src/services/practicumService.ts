@@ -28,7 +28,14 @@ import type {
   UserProfile,
 } from '../types/models';
 
-import { db, isFirebaseConfigured } from './firebaseConfig';
+import { auth, db, isFirebaseConfigured } from './firebaseConfig';
+import {
+  calculateDistanceMeters,
+  isValidCoordinatePair,
+  MAX_ACCEPTABLE_ACCURACY_METERS,
+  type Coordinates,
+  type LaboratoryLocation,
+} from './locationService';
 
 // ==========================================
 // RESPONSE HELPER
@@ -1183,10 +1190,120 @@ export const closeSession = async (
 // STUDENT ATTENDANCE
 // ==========================================
 
+export const fetchLaboratoryLocation = async (
+  laboratoryId: string
+): Promise<ApiResponse<LaboratoryLocation>> => {
+  try {
+    requireFirebase();
+    const trimmedId = laboratoryId.trim();
+    if (!trimmedId) {
+      return makeError(
+        'Laboratorium sesi belum dikonfigurasi.',
+        'VALIDATION_ERROR'
+      );
+    }
+
+    const labSnap = await getDoc(doc(db, 'laboratories', trimmedId));
+    if (!labSnap.exists()) {
+      return makeError(
+        'Data laboratorium tidak ditemukan.',
+        'NOT_FOUND'
+      );
+    }
+
+    const raw = labSnap.data() as Record<string, unknown>;
+    const latitude = Number(raw.latitude);
+    const longitude = Number(raw.longitude);
+    const radiusMeters = Number(raw.radiusMeters);
+
+    if (
+      !isValidCoordinatePair(latitude, longitude) ||
+      !Number.isFinite(radiusMeters) ||
+      radiusMeters <= 0
+    ) {
+      return makeError(
+        'Koordinat atau radius laboratorium belum valid.',
+        'VALIDATION_ERROR'
+      );
+    }
+
+    return makeSuccess('Data laboratorium berhasil dimuat.', {
+      id: labSnap.id,
+      name:
+        typeof raw.name === 'string' && raw.name.trim()
+          ? raw.name.trim()
+          : 'Laboratorium',
+      latitude,
+      longitude,
+      radiusMeters,
+    });
+  } catch (error) {
+    return mapError(error, 'Gagal memuat data laboratorium.');
+  }
+};
+
+const submitAttendanceViaBackend = async (
+  endpoint: string,
+  sessionId: string,
+  notes: string,
+  coordinates: Coordinates
+): Promise<ApiResponse<AttendanceRecord>> => {
+  const firebaseUser = auth.currentUser;
+  if (!firebaseUser) {
+    return makeError('Sesi login tidak ditemukan. Silakan login ulang.', 'UNAUTHENTICATED');
+  }
+
+  const idToken = await firebaseUser.getIdToken();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        sessionId,
+        notes: notes.trim().slice(0, 30),
+        coordinates: {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          accuracy: coordinates.accuracy ?? null,
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    const payload = (await response.json().catch(() => null)) as
+      | Partial<ApiResponse<AttendanceRecord>>
+      | null;
+
+    if (!response.ok || !payload?.ok) {
+      return makeError(
+        payload?.message || `Validasi presensi server gagal (HTTP ${response.status}).`,
+        payload?.errorCode ?? (response.status === 403 ? 'FORBIDDEN' : 'INTERNAL_ERROR')
+      );
+    }
+
+    return makeSuccess(
+      payload.message || 'Presensi berhasil dicatat.',
+      payload.data
+    );
+  } catch (error) {
+    return mapError(error, 'Gagal menghubungi server validasi presensi.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 export const recordAttendance = async (
   sessionId: string,
   notes: string,
-  currentUser: UserProfile | null
+  currentUser: UserProfile | null,
+  coordinates?: Coordinates | null
 ): Promise<ApiResponse<AttendanceRecord>> => {
   try {
     requireFirebase();
@@ -1197,6 +1314,37 @@ export const recordAttendance = async (
       return makeError(
         'Sesi praktikum tidak valid.',
         'VALIDATION_ERROR'
+      );
+    }
+
+    if (
+      !coordinates ||
+      !isValidCoordinatePair(coordinates.latitude, coordinates.longitude)
+    ) {
+      return makeError(
+        'Koordinat lokasi perangkat belum tersedia. Ambil lokasi terlebih dahulu.',
+        'VALIDATION_ERROR'
+      );
+    }
+
+    if (
+      typeof coordinates.accuracy === 'number' &&
+      Number.isFinite(coordinates.accuracy) &&
+      coordinates.accuracy > MAX_ACCEPTABLE_ACCURACY_METERS
+    ) {
+      return makeError(
+        `Akurasi lokasi (${Math.round(coordinates.accuracy)} m) belum memadai. Coba lagi di area lebih terbuka.`,
+        'VALIDATION_ERROR'
+      );
+    }
+
+    const attendanceEndpoint = process.env.EXPO_PUBLIC_ATTENDANCE_API_URL?.trim();
+    if (attendanceEndpoint) {
+      return await submitAttendanceViaBackend(
+        attendanceEndpoint,
+        sessionId,
+        notes,
+        coordinates
       );
     }
 
@@ -1227,8 +1375,9 @@ export const recordAttendance = async (
           );
         }
 
+        const rawSession = sessionSnap.data() as Record<string, unknown>;
         const session = normalizeSession(
-          sessionSnap.data() as Record<string, unknown>,
+          rawSession,
           sessionSnap.id
         );
 
@@ -1251,6 +1400,60 @@ export const recordAttendance = async (
           );
         }
 
+        const laboratoryId =
+          typeof rawSession.laboratoryId === 'string'
+            ? rawSession.laboratoryId.trim()
+            : '';
+
+        if (!laboratoryId) {
+          throw new PracticumError(
+            'Laboratorium untuk sesi ini belum dikonfigurasi. Hubungi asisten praktikum.',
+            'VALIDATION_ERROR'
+          );
+        }
+
+        const labSnap = await transaction.get(
+          doc(db, 'laboratories', laboratoryId)
+        );
+
+        if (!labSnap.exists()) {
+          throw new PracticumError(
+            'Data laboratorium sesi tidak ditemukan.',
+            'NOT_FOUND'
+          );
+        }
+
+        const rawLab = labSnap.data() as Record<string, unknown>;
+        const labLat = Number(rawLab.latitude);
+        const labLon = Number(rawLab.longitude);
+        const radiusMeters = Number(rawLab.radiusMeters);
+
+        if (
+          !isValidCoordinatePair(labLat, labLon) ||
+          !Number.isFinite(radiusMeters) ||
+          radiusMeters <= 0
+        ) {
+          throw new PracticumError(
+            'Koordinat atau radius laboratorium belum dikonfigurasi dengan benar.',
+            'VALIDATION_ERROR'
+          );
+        }
+
+        const distanceMeters =
+          Math.round(
+            calculateDistanceMeters(coordinates, {
+              latitude: labLat,
+              longitude: labLon,
+            }) * 10
+          ) / 10;
+
+        if (distanceMeters > radiusMeters) {
+          throw new PracticumError(
+            `Lokasi Anda berada di luar radius laboratorium (${Math.round(distanceMeters)} m dari batas ${radiusMeters} m).`,
+            'FORBIDDEN'
+          );
+        }
+
         const existing = await transaction.get(attendanceRef);
 
         if (existing.exists()) {
@@ -1260,7 +1463,12 @@ export const recordAttendance = async (
           );
         }
 
-        const record: AttendanceRecord = {
+        const record: AttendanceRecord & {
+          laboratoryId: string;
+          distanceMeters: number;
+          locationAccuracyMeters: number | null;
+          locationValidatedAt: string;
+        } = {
           id: attendanceId,
           sessionId,
           studentId: student.uid,
@@ -1271,6 +1479,14 @@ export const recordAttendance = async (
           attendedAt,
           status: 'Hadir',
           notes: notes.trim().slice(0, 30),
+          laboratoryId,
+          distanceMeters,
+          locationAccuracyMeters:
+            typeof coordinates.accuracy === 'number' &&
+            Number.isFinite(coordinates.accuracy)
+              ? Math.round(coordinates.accuracy * 10) / 10
+              : null,
+          locationValidatedAt: timestamp,
         };
 
         transaction.set(attendanceRef, record);

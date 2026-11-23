@@ -71,7 +71,10 @@ const SessionsScreen = () => {
       showFeedback('info', MESSAGES.alreadyAttended);
       return;
     }
-    setSelectedSessionId(session.id);
+    router.push({
+      pathname: '/student/attendance',
+      params: { sessionId: String(session.id) },
+    });
   };
 
   const handleSubmit = async (notes: string): Promise<SubmitResult> => {

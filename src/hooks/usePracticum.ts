@@ -28,6 +28,7 @@ import {
   db,
   isFirebaseConfigured,
 } from '../services/firebaseConfig';
+import type { Coordinates } from '../services/locationService';
 
 import {
   assignStudentToClass as assignStudentToClassService,
@@ -515,12 +516,17 @@ export const usePracticum = (): UsePracticumResult => {
   // ==========================================
 
   const recordAttendance = useCallback(
-    (sessionId: string, notes = '') =>
+    (
+      sessionId: string,
+      notes = '',
+      coordinates?: Coordinates | null
+    ) =>
       runAction(
         recordAttendanceService(
           sessionId,
           notes,
-          currentUser
+          currentUser,
+          coordinates
         )
       ),
     [currentUser, runAction]
