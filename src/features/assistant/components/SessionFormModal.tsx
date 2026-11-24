@@ -17,6 +17,7 @@ import type {
   ApiResponse,
   CreateSessionInput,
   LabClass,
+  Laboratory,
   Session,
 } from '../../../types/models';
 
@@ -24,6 +25,7 @@ type Props = {
   visible: boolean;
   session: Session | null;
   classes: LabClass[];
+  laboratories?: Laboratory[];
   onClose: () => void;
   onSubmit: (
     input: CreateSessionInput
@@ -41,6 +43,7 @@ const emptyForm = (): CreateSessionInput => ({
   startTime: '08:00',
   endTime: '10:00',
   room: '',
+  laboratoryId: '',
   totalStudents: 0,
   notes: '',
 });
@@ -84,6 +87,7 @@ const SessionFormModal = ({
   visible,
   session,
   classes,
+  laboratories = [],
   onClose,
   onSubmit,
 }: Props) => {
@@ -111,6 +115,7 @@ const SessionFormModal = ({
             startTime: session.startTime,
             endTime: session.endTime,
             room: session.room,
+            laboratoryId: session.laboratoryId ?? '',
             totalStudents: session.totalStudents,
             notes: session.notes,
           }
@@ -355,6 +360,50 @@ const SessionFormModal = ({
             placeholder="10:00"
           />
         </View>
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>
+          Laboratorium (Lokasi Presensi)
+        </Text>
+
+        <View style={styles.classChoices}>
+          {laboratories.map((lab) => {
+            const active = form.laboratoryId === lab.id;
+
+            return (
+              <Pressable
+                key={lab.id}
+                onPress={() => {
+                  update('laboratoryId', active ? '' : lab.id);
+                  if (!active) {
+                    update('room', lab.name);
+                  }
+                }}
+                style={[
+                  styles.classChoice,
+                  active && styles.classChoiceActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.classChoiceName,
+                    active && styles.classChoiceNameActive,
+                  ]}
+                >
+                  {lab.name} ({lab.radiusMeters}m)
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {!laboratories.length ? (
+          <Text style={styles.classHint}>
+            Belum ada data laboratorium. Tambahkan melalui menu
+            Lab agar sesi terhubung ke lokasi presensi.
+          </Text>
+        ) : null}
       </View>
 
       <Field

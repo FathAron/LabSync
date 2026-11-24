@@ -122,6 +122,21 @@ const StudentLayout = () => {
             ),
           }}
         />
+
+        {/* TAB 4: PETA LABORATORIUM - ARON (SPRINT 3) */}
+        <Tabs.Screen
+          name="maps"
+          options={{
+            title: 'Peta Lab',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons
+                name="map-outline"
+                size={size}
+                color={toColor(color, colors.primary)}
+              />
+            ),
+          }}
+        />
       </Tabs>
     </View>
   );

@@ -89,6 +89,23 @@ service cloud.firestore {
       );
 
       allow delete: if false;
+
+      // Subkoleksi token push notification per perangkat (SRS-06 - Adelia)
+      match /pushTokens/{tokenId} {
+        allow read, write: if isSelf(userId);
+      }
+
+      match /devices/{deviceId} {
+        allow read, write: if isSelf(userId);
+      }
+    }
+
+    // =========================
+    // LABORATORIES
+    // =========================
+    match /laboratories/{laboratoryId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAssistant();
     }
 
     // =========================
@@ -109,10 +126,7 @@ service cloud.firestore {
     // SESSIONS
     // =========================
     match /sessions/{sessionId} {
-      allow read: if isAssistant() || (
-        isStudent() &&
-        sameClassAsCurrentUser(resource.data.className)
-      );
+      allow read: if isAssistant() || isStudent();
 
       allow create, update, delete: if isAssistant();
     }
@@ -122,8 +136,10 @@ service cloud.firestore {
     // =========================
     match /attendance/{attendanceId} {
       allow read: if isAssistant() || (
-        isStudent() &&
-        resource.data.studentId == request.auth.uid
+        isStudent() && (
+          resource == null ||
+          resource.data.studentId == request.auth.uid
+        )
       );
 
       allow create: if isStudent()
@@ -164,6 +180,23 @@ service cloud.firestore {
         );
 
       allow delete: if false;
+
+      // Subkoleksi token push notification per perangkat (SRS-06 - Adelia)
+      match /pushTokens/{tokenId} {
+        allow read, write: if isSelf(userId);
+      }
+
+      match /devices/{deviceId} {
+        allow read, write: if isSelf(userId);
+      }
+    }
+
+    // =========================
+    // LABORATORIES
+    // =========================
+    match /laboratories/{laboratoryId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAssistant();
     }
 
     // =========================
