@@ -34,9 +34,38 @@ export interface LabClass {
   updatedAt: string;
 }
 
+export interface Laboratory {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLaboratoryInput {
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  description?: string;
+}
+
+export interface UserDevice {
+  id: string;
+  token: string;
+  provider: 'fcm' | 'expo';
+  platform: 'android' | 'ios';
+  enabled: boolean;
+  updatedAt: string;
+}
+
 export interface Session {
   id: string;
   classId?: string; // referensi ke classes/{id}
+  laboratoryId?: string; // referensi ke laboratories/{id}
   courseName: string;
   courseCode: string;
   moduleCode: string;
@@ -71,6 +100,10 @@ export interface AttendanceRecord {
   attendedAt: string; // 'HH:mm WIB'
   status: 'Hadir';
   notes: string;
+  laboratoryId?: string;
+  distanceMeters?: number;
+  locationAccuracyMeters?: number | null;
+  locationValidatedAt?: string;
 }
 
 export interface AIClassificationResult {
@@ -133,6 +166,7 @@ export interface CreateSessionInput {
   startTime: string;
   endTime: string;
   room: string;
+  laboratoryId?: string;
   totalStudents: number;
   notes?: string;
 }
@@ -174,6 +208,28 @@ export interface UseLeaveResult {
     leaveId: string,
     decision: 'APPROVED' | 'REJECTED',
     reviewNotes?: string
+  ) => Promise<ApiResponse<void>>;
+}
+
+export interface LaboratoryActivitySummary {
+  laboratory: Laboratory;
+  ongoingSession: Session | null;
+  nextSession: Session | null;
+  upcomingSessions: Session[];
+}
+
+export interface UseLaboratoriesResult {
+  laboratories: Laboratory[];
+  loading: boolean;
+  createLaboratory: (
+    input: CreateLaboratoryInput
+  ) => Promise<ApiResponse<Laboratory>>;
+  updateLaboratory: (
+    laboratoryId: string,
+    patch: Partial<CreateLaboratoryInput>
+  ) => Promise<ApiResponse<void>>;
+  deleteLaboratory: (
+    laboratoryId: string
   ) => Promise<ApiResponse<void>>;
 }
 

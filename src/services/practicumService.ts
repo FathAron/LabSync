@@ -224,6 +224,10 @@ const normalizeSession = (
     ...(typeof raw.classId === 'string'
       ? { classId: raw.classId }
       : {}),
+    ...(typeof raw.laboratoryId === 'string' &&
+    raw.laboratoryId.trim()
+      ? { laboratoryId: raw.laboratoryId.trim() }
+      : {}),
     courseName: asString(raw.courseName),
     courseCode: asString(raw.courseCode),
     moduleCode: asString(raw.moduleCode),
@@ -841,9 +845,11 @@ export const createSession = async (
     );
 
     const createdAt = nowIso();
+    const laboratoryId = input.laboratoryId?.trim() ?? '';
 
     const payload: Omit<Session, 'id'> = {
       ...(classData ? { classId: classData.id } : {}),
+      ...(laboratoryId ? { laboratoryId } : {}),
       courseName: input.courseName.trim(),
       courseCode: input.courseCode.trim().toUpperCase(),
       moduleCode: input.moduleCode.trim(),
@@ -1016,6 +1022,10 @@ export const updateSession = async (
 
     if (patch.room !== undefined) {
       values.room = patch.room.trim();
+    }
+
+    if (patch.laboratoryId !== undefined) {
+      values.laboratoryId = patch.laboratoryId.trim();
     }
 
     if (patch.notes !== undefined) {

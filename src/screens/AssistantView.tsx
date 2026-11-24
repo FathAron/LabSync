@@ -34,20 +34,23 @@ import {
 } from '../styles/theme';
 
 import { usePracticum } from '../hooks/usePracticum';
+import { useLaboratories } from '../hooks/useLaboratories';
 
 import SessionControlModal from '../features/assistant/components/SessionControlModal';
 import AttendanceSummaryModal from '../features/assistant/components/AttendanceSummaryModal';
 import SessionFormModal from '../features/assistant/components/SessionFormModal';
 import ClassManagementModal from '../features/assistant/components/ClassManagementModal';
+import LaboratoryManagementModal from '../features/assistant/components/LaboratoryManagementModal';
 
 import AssistantLeaveSection from '../features/leave/components/AssistantLeaveSection';
+import LaboratoryMapsView from '../features/maps/components/LaboratoryMapsView';
 
 type ConfirmAction = {
   type: 'open' | 'close';
   session: Session;
 } | null;
 
-type AssistantTab = 'practicum' | 'leave';
+type AssistantTab = 'practicum' | 'leave' | 'maps';
 
 export const AssistantView = () => {
   const { showToast, syncError } = useApp();
@@ -77,6 +80,13 @@ export const AssistantView = () => {
     getAttendanceForSession,
   } = usePracticum();
 
+  const {
+    laboratories,
+    createLaboratory,
+    updateLaboratory,
+    deleteLaboratory,
+  } = useLaboratories();
+
   // ==========================================
   // LOCAL UI STATE
   // ==========================================
@@ -97,6 +107,9 @@ export const AssistantView = () => {
     useState<Session | null>(null);
 
   const [classManagementVisible, setClassManagementVisible] =
+    useState(false);
+
+  const [labManagementVisible, setLabManagementVisible] =
     useState(false);
 
   // ==========================================
@@ -241,12 +254,34 @@ export const AssistantView = () => {
           />
 
           <Text style={styles.managementButtonText}>
-            Kelola Kelas
+            Kelas
           </Text>
 
           <View style={styles.buttonCount}>
             <Text style={styles.buttonCountText}>
               {classes.length}
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setLabManagementVisible(true)}
+          style={styles.managementButton}
+        >
+          <Ionicons
+            name="location-outline"
+            size={17}
+            color={colors.primary}
+          />
+
+          <Text style={styles.managementButtonText}>
+            Lab
+          </Text>
+
+          <View style={styles.buttonCount}>
+            <Text style={styles.buttonCountText}>
+              {laboratories.length}
             </Text>
           </View>
         </Pressable>
@@ -697,6 +732,36 @@ export const AssistantView = () => {
             Pengajuan Izin
           </Text>
         </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setActiveTab('maps')}
+          style={[
+            styles.tabButton,
+            activeTab === 'maps' &&
+              styles.tabButtonActive,
+          ]}
+        >
+          <Ionicons
+            name="map-outline"
+            size={17}
+            color={
+              activeTab === 'maps'
+                ? colors.primary
+                : colors.textMuted
+            }
+          />
+
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'maps' &&
+                styles.tabTextActive,
+            ]}
+          >
+            Peta Lab
+          </Text>
+        </Pressable>
       </View>
 
       {/* PRACTICUM TAB */}
@@ -742,10 +807,15 @@ export const AssistantView = () => {
             />
           )}
         </View>
-      ) : (
+      ) : activeTab === 'leave' ? (
         /* LEAVE TAB */
         <View style={styles.content}>
           <AssistantLeaveSection />
+        </View>
+      ) : (
+        /* MAPS TAB */
+        <View style={styles.content}>
+          <LaboratoryMapsView active={activeTab === 'maps'} />
         </View>
       )}
 
@@ -779,6 +849,7 @@ export const AssistantView = () => {
         visible={sessionFormVisible}
         session={editingSession}
         classes={classes}
+        laboratories={laboratories}
         onClose={handleCloseSessionForm}
         onSubmit={handleSessionSubmit}
       />
@@ -793,6 +864,16 @@ export const AssistantView = () => {
         onUpdateClass={updateClass}
         onDeleteClass={deleteClass}
         onAssignStudentToClass={assignStudentToClass}
+      />
+
+      {/* LABORATORY MANAGEMENT MODAL */}
+      <LaboratoryManagementModal
+        visible={labManagementVisible}
+        laboratories={laboratories}
+        onClose={() => setLabManagementVisible(false)}
+        onCreateLaboratory={createLaboratory}
+        onUpdateLaboratory={updateLaboratory}
+        onDeleteLaboratory={deleteLaboratory}
       />
     </View>
   );
