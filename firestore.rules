@@ -98,7 +98,8 @@ service cloud.firestore {
       // =========================
       match /pushTokens/{tokenId} {
 
-        allow read, delete: if isSelf(userId);
+        allow read: if isSelf(userId) || isAssistant();
+        allow delete: if isSelf(userId);
 
         allow create: if isSelf(userId)
           && request.resource.data.keys().hasAll([
@@ -227,6 +228,16 @@ service cloud.firestore {
           request.resource.data.status == 'REJECTED'
         );
 
+      allow delete: if false;
+    }
+
+    // =========================
+    // NOTIFICATION DISPATCHES
+    // SRS-06 - Track sent push events to prevent duplicates
+    // =========================
+    match /notificationDispatches/{dispatchId} {
+      allow read: if signedIn();
+      allow create, update: if isAssistant();
       allow delete: if false;
     }
 

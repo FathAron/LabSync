@@ -162,10 +162,25 @@ const AppShell = () => {
     [navigateFromNotification]
   );
 
-  // Listener notifikasi khusus perangkat native.
+  // Inisialisasi channel dan listener notifikasi khusus perangkat native.
   useEffect(() => {
     if (Platform.OS === 'web') {
       return;
+    }
+
+    // Android 8.0+ (API 26+) WAJIB mendaftarkan channel notifikasi sebelum notifikasi dapat ditampilkan
+    if (Platform.OS === 'android') {
+      void Notifications.setNotificationChannelAsync('default', {
+        name: 'Notifikasi LabSync',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#2563EB',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: false,
+        enableLights: true,
+        enableVibrate: true,
+        showBadge: true,
+      });
     }
 
     const receivedSubscription =

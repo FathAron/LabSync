@@ -61,7 +61,9 @@ const makeScheduleEventId = (sessionId, updateTimeMillis) =>
   `session-${sessionId}-schedule-${updateTimeMillis}`;
 
 const makeSessionOpenedEventId = (sessionId, updateTimeMillis) =>
-  `session-${sessionId}-opened-${updateTimeMillis}`;
+  updateTimeMillis
+    ? `session-${sessionId}-opened-${updateTimeMillis}`
+    : `session-${sessionId}-opened`;
 
 const buildScheduleNotification = ({
   sessionId,

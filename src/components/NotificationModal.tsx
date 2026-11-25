@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { colors, radius, spacing, theme } from '../styles/theme';
 import type { Session } from '../types/models';
 
@@ -46,7 +45,6 @@ interface SwipeableItemProps {
   item: AppNotificationItem;
   isRead: boolean;
   onPress: (item: AppNotificationItem) => void;
-  onOpenLink: (item: AppNotificationItem) => void;
   onMarkRead: (id: string) => void;
   onDelete: (id: string) => void;
   onBlockedDelete: (item: AppNotificationItem) => void;
@@ -56,7 +54,6 @@ const SwipeableNotificationItem: React.FC<SwipeableItemProps> = ({
   item,
   isRead,
   onPress,
-  onOpenLink,
   onMarkRead,
   onDelete,
   onBlockedDelete,
@@ -220,28 +217,22 @@ const SwipeableNotificationItem: React.FC<SwipeableItemProps> = ({
             </Text>
 
             <View style={styles.itemFooterRow}>
-              <Text style={styles.itemTime}>{item.time}</Text>
+              <View style={styles.itemTimeContainer}>
+                <Ionicons name="time-outline" size={12} color={colors.textMuted} />
+                <Text style={styles.itemTime}>{item.time}</Text>
+              </View>
 
-              {/* Action buttons (Buka Sesi / Tandai Dibaca / Hapus 1 per 1) */}
+              {/* Action buttons (Tandai Dibaca / Hapus 1 per 1) */}
               <View style={styles.itemActionGroup}>
-                {item.sessionId || item.url ? (
-                  <Pressable
-                    hitSlop={6}
-                    onPress={() => onOpenLink(item)}
-                    style={styles.openLinkBtn}
-                  >
-                    <Text style={styles.openLinkText}>Buka Sesi</Text>
-                    <Ionicons name="arrow-forward" size={10} color={colors.primaryDark} />
-                  </Pressable>
-                ) : null}
-
                 {!isRead ? (
                   <Pressable
                     hitSlop={6}
                     onPress={() => onMarkRead(item.id)}
                     style={styles.markReadSmallBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Tandai sudah dibaca"
                   >
-                    <Ionicons name="eye-outline" size={12} color={colors.primaryDark} />
+                    <Ionicons name="checkmark-circle-outline" size={12} color={colors.primaryDark} />
                     <Text style={styles.markReadSmallText}>Tandai Dibaca</Text>
                   </Pressable>
                 ) : null}
@@ -257,13 +248,15 @@ const SwipeableNotificationItem: React.FC<SwipeableItemProps> = ({
                   }}
                   style={[
                     styles.deleteSingleBtn,
+                    isRead && styles.deleteSingleBtnActive,
                     !isRead && styles.deleteSingleBtnDisabled,
                   ]}
+                  accessibilityRole="button"
                   accessibilityLabel="Hapus notifikasi ini"
                 >
                   <Ionicons
                     name="trash-outline"
-                    size={15}
+                    size={14}
                     color={isRead ? colors.danger : colors.textMuted}
                   />
                 </Pressable>
@@ -286,7 +279,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   activeSessions = [],
   notificationList = [],
 }) => {
-  const router = useRouter();
   const { height } = useWindowDimensions();
 
   const [clearedIds, setClearedIds] = useState<string[]>([]);
@@ -413,19 +405,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     handleMarkOneRead(item.id);
   };
 
-  const handleOpenDestination = (item: AppNotificationItem) => {
-    handleMarkOneRead(item.id);
-    onClose();
-    if (item.sessionId) {
-      router.push({
-        pathname: '/student/attendance',
-        params: { sessionId: item.sessionId },
-      });
-    } else if (item.url) {
-      router.push(item.url as never);
-    }
-  };
-
   if (!visible) return null;
 
   return (
@@ -512,7 +491,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                     item={item}
                     isRead={isRead}
                     onPress={handleItemPress}
-                    onOpenLink={handleOpenDestination}
                     onMarkRead={handleMarkOneRead}
                     onDelete={handleDeleteOne}
                     onBlockedDelete={handleBlockedDelete}
@@ -752,39 +730,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.xs + 2,
+    marginTop: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  itemTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   itemTime: {
     fontSize: 11,
     color: colors.textMuted,
+    fontWeight: '500',
   },
   itemActionGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs + 2,
   },
-  openLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.pill,
-    backgroundColor: '#FFEBF3',
-    borderWidth: 1,
-    borderColor: '#F8CCD4',
-  },
-  openLinkText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
   markReadSmallBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
@@ -796,9 +765,17 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   deleteSingleBtn: {
-    padding: 4,
+    width: 28,
+    height: 28,
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteSingleBtnActive: {
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: '#F8CCD4',
   },
   deleteSingleBtnDisabled: {
     opacity: 0.45,
