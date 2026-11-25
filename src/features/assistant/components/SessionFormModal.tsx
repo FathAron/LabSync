@@ -25,6 +25,10 @@ import {
   validateSessionScheduleRealtime,
 } from '../../../utils/dateUtils';
 import {
+  formatDisplayClass,
+  normalizeMainClass,
+} from '../../../utils/classUtils';
+import {
   checkScheduleConflicts,
   type ConflictCheckResult,
 } from '../../../utils/conflictUtils';
@@ -52,7 +56,6 @@ type Props = {
 const STEP_TITLES = [
   'Mata Praktikum',
   'Kelas Utama',
-  'Lab Praktikum',
   'Laboratorium Fisik',
   'Waktu & Jadwal',
   'Modul & Materi',
@@ -110,9 +113,10 @@ const SessionFormContent = ({
   const initialDate = session?.date ?? todayStr;
   const initialGroup = session?.groupCode ?? session?.className ?? '';
   const initialMainClass =
-    session?.mainClass ??
+    (session?.mainClass ? normalizeMainClass(session.mainClass) : '') ||
+    (session?.className ? normalizeMainClass(session.className) : '') ||
     (initialGroup && /[A-Z]/.test(initialGroup.charAt(0))
-      ? `Kelas ${initialGroup.charAt(0).toUpperCase()}`
+      ? initialGroup.charAt(0).toUpperCase()
       : '');
 
   // Form states
@@ -124,10 +128,7 @@ const SessionFormContent = ({
   const [mainClass, setMainClass] = useState(initialMainClass);
   const [customMainClassInput, setCustomMainClassInput] = useState('');
   const [customMainClasses, setCustomMainClasses] = useState<string[]>([]);
-
-  const [groupCode, setGroupCode] = useState(initialGroup);
-  const [customGroupInput, setCustomGroupInput] = useState('');
-  const [customGroups, setCustomGroups] = useState<string[]>([]);
+  const groupCode = initialGroup;
 
   const [laboratoryId, setLaboratoryId] = useState(session?.laboratoryId ?? '');
   const [room, setRoom] = useState(session?.room ?? '');
@@ -182,46 +183,27 @@ const SessionFormContent = ({
     return getAcademicHierarchyForCourse(courseName);
   }, [courseName]);
 
-  // Available main classes: from catalog + custom added + existing classes matching course
+  // Available main classes: from catalog + custom added + default classes
   const availableMainClasses = useMemo(() => {
     const set = new Set<string>();
     if (hierarchy) {
-      hierarchy.mainClasses.forEach((mc) => set.add(mc.className));
-    } else {
-      ['Kelas A', 'Kelas B', 'Kelas C', 'Kelas D'].forEach((c) => set.add(c));
+      hierarchy.mainClasses.forEach((mc) => {
+        const norm = normalizeMainClass(mc.className);
+        if (norm) set.add(norm);
+      });
     }
-    customMainClasses.forEach((c) => set.add(c));
+    // Pastikan kelas standar A-F selalu tersedia
+    ['A', 'B', 'C', 'D', 'E', 'F'].forEach((c) => set.add(c));
+    customMainClasses.forEach((c) => {
+      const norm = normalizeMainClass(c);
+      if (norm) set.add(norm);
+    });
     return Array.from(set).sort();
   }, [hierarchy, customMainClasses]);
 
-  // Available groups for selected main class
-  const availableGroups = useMemo(() => {
-    const set = new Set<string>();
-    if (hierarchy && mainClass) {
-      const found = hierarchy.mainClasses.find(
-        (mc) => mc.className.toLowerCase() === mainClass.toLowerCase()
-      );
-      if (found) {
-        found.groups.forEach((g) => set.add(g));
-      } else {
-        const letter = mainClass.replace(/[^A-Za-z]/g, '').slice(-1).toUpperCase() || 'A';
-        set.add(`${letter}1`);
-        set.add(`${letter}2`);
-      }
-    } else if (mainClass) {
-      const letter = mainClass.replace(/[^A-Za-z]/g, '').slice(-1).toUpperCase() || 'A';
-      set.add(`${letter}1`);
-      set.add(`${letter}2`);
-    } else {
-      ['A1', 'A2', 'B1', 'B2'].forEach((g) => set.add(g));
-    }
-    customGroups.forEach((g) => set.add(g));
-    return Array.from(set).sort();
-  }, [hierarchy, mainClass, customGroups]);
-
   // Conflict detection
   const conflictResult: ConflictCheckResult = useMemo(() => {
-    if (currentStep !== 7) {
+    if (currentStep !== 6) {
       return {
         hasConflict: false,
         labConflicts: [],
@@ -259,15 +241,12 @@ const SessionFormContent = ({
         if (!courseCode.trim()) return 'Kode mata praktikum tidak boleh kosong.';
         return null;
       case 2:
-        if (!mainClass.trim()) return 'Pilih salah satu kelas utama (misal: Kelas A).';
+        if (!mainClass.trim()) return 'Pilih salah satu kelas utama (misal: C).';
         return null;
       case 3:
-        if (!groupCode.trim()) return 'Pilih salah satu lab praktikum (misal: Lab. A1).';
-        return null;
-      case 4:
         if (!room.trim()) return 'Pilih laboratorium atau tentukan lokasi ruangan.';
         return null;
-      case 5:
+      case 4:
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
           return 'Format tanggal harus YYYY-MM-DD (contoh: 2026-11-25).';
         }
@@ -289,7 +268,7 @@ const SessionFormContent = ({
           return scheduleVal.error || 'Jadwal sesi praktikum tidak valid.';
         }
         return null;
-      case 6:
+      case 5:
         if (!moduleCode.trim()) return 'Kode modul wajib diisi (contoh: Modul 01).';
         if (!moduleTitle.trim()) return 'Judul modul/topik materi wajib diisi.';
         return null;
@@ -305,7 +284,7 @@ const SessionFormContent = ({
       return;
     }
     setError('');
-    setCurrentStep((prev) => Math.min(prev + 1, 7));
+    setCurrentStep((prev) => Math.min(prev + 1, 6));
   };
 
   const handlePrevStep = () => {
@@ -316,22 +295,12 @@ const SessionFormContent = ({
   const handleAddCustomClass = () => {
     const trimmed = customMainClassInput.trim();
     if (!trimmed) return;
-    const formatted = trimmed.startsWith('Kelas') ? trimmed : `Kelas ${trimmed.toUpperCase()}`;
+    const formatted = normalizeMainClass(trimmed) || trimmed.toUpperCase();
     if (!customMainClasses.includes(formatted)) {
       setCustomMainClasses((prev) => [...prev, formatted]);
     }
     setMainClass(formatted);
     setCustomMainClassInput('');
-  };
-
-  const handleAddCustomGroup = () => {
-    const trimmed = customGroupInput.trim().toUpperCase();
-    if (!trimmed) return;
-    if (!customGroups.includes(trimmed)) {
-      setCustomGroups((prev) => [...prev, trimmed]);
-    }
-    setGroupCode(trimmed);
-    setCustomGroupInput('');
   };
 
   const handleSelectLab = (lab: Laboratory) => {
@@ -354,12 +323,17 @@ const SessionFormContent = ({
 
     setSaving(true);
     try {
+      const canonicalClass = formatDisplayClass(mainClass);
+      const targetClassCode = normalizeMainClass(mainClass);
+
       const payload: CreateSessionInput = {
         courseName: courseName.trim(),
         courseCode: courseCode.trim().toUpperCase(),
-        mainClass: mainClass.trim(),
-        groupCode: groupCode.trim().toUpperCase(),
-        className: groupCode.trim().toUpperCase(),
+        targetClassCode,
+        targetClassName: canonicalClass,
+        mainClass: canonicalClass,
+        groupCode: targetClassCode,
+        className: canonicalClass,
         moduleCode: moduleCode.trim(),
         moduleTitle: moduleTitle.trim(),
         day: (day ? day.trim() : '') || deriveWeekdayName(date.trim()) || 'Senin',
@@ -368,6 +342,7 @@ const SessionFormContent = ({
         endTime: endTime.trim(),
         room: room.trim(),
         laboratoryId: laboratoryId.trim() || undefined,
+        laboratoryName: room.trim(),
         totalStudents: 0,
         notes: notes.trim(),
       };
@@ -391,7 +366,7 @@ const SessionFormContent = ({
       <View style={styles.stepHeader}>
         <View style={styles.stepTitleRow}>
           <Text style={styles.stepBadgeText}>
-            Langkah {currentStep} dari 7
+            Langkah {currentStep} dari 6
           </Text>
           <Text style={styles.stepTitleText}>
             {STEP_TITLES[currentStep - 1]}
@@ -400,7 +375,7 @@ const SessionFormContent = ({
 
         {/* PROGRESS PILLS */}
         <View style={styles.progressRow}>
-          {[1, 2, 3, 4, 5, 6, 7].map((num) => {
+          {[1, 2, 3, 4, 5, 6].map((num) => {
             const isCompleted = num < currentStep;
             const isCurrent = num === currentStep;
             return (
@@ -568,17 +543,18 @@ const SessionFormContent = ({
             </View>
 
             <Text style={styles.stepInstruction}>
-              Pilih kelas utama untuk mata praktikum ini. Pilihan kelas menyesuaikan mata praktikum yang dipilih.
+              Pilih kelas utama (A, B, C, D, E, F) untuk mata praktikum ini. Sesi praktikum akan tersimpan sebagai Kelas {mainClass ? normalizeMainClass(mainClass) : '...'}.
             </Text>
 
             <View style={styles.choiceGrid}>
               {availableMainClasses.map((item) => {
-                const isSelected = mainClass === item;
+                const normItem = normalizeMainClass(item) || item;
+                const isSelected = (normalizeMainClass(mainClass) || mainClass) === normItem;
                 return (
                   <Pressable
                     key={item}
                     onPress={() => {
-                      setMainClass(item);
+                      setMainClass(normItem);
                       setError('');
                     }}
                     style={[
@@ -597,7 +573,7 @@ const SessionFormContent = ({
                         isSelected && styles.mainClassChipTextSelected,
                       ]}
                     >
-                      {item}
+                      {normItem}
                     </Text>
                   </Pressable>
                 );
@@ -610,7 +586,7 @@ const SessionFormContent = ({
               <View style={styles.inlineRow}>
                 <TextInput
                   style={[styles.input, styles.inlineInput]}
-                  placeholder="Contoh: Kelas E / Kelas Internasional"
+                  placeholder="Contoh: E atau F"
                   placeholderTextColor={colors.textMuted}
                   value={customMainClassInput}
                   onChangeText={setCustomMainClassInput}
@@ -632,98 +608,19 @@ const SessionFormContent = ({
         )}
 
         {/* ================================================= */}
-        {/* STEP 3: PILIH LAB PRAKTIKUM                      */}
+        {/* STEP 3: PILIH LABORATORIUM FISIK                 */}
         {/* ================================================= */}
         {currentStep === 3 && (
           <View style={styles.stepBody}>
             <View style={styles.contextSummaryBadge}>
               <Ionicons name="school-outline" size={15} color={colors.primaryDark} />
               <Text style={styles.contextSummaryText}>
-                {courseName} → {mainClass}
+                {courseName} → {formatDisplayClass(mainClass)}
               </Text>
             </View>
 
             <Text style={styles.stepInstruction}>
-              Pilih lab praktikum yang akan digunakan oleh kelas ini. Setiap lab memiliki daftar praktikan masing-masing.
-            </Text>
-
-            <View style={styles.choiceGrid}>
-              {availableGroups.map((g) => {
-                const isSelected = groupCode === g;
-                return (
-                  <Pressable
-                    key={g}
-                    onPress={() => {
-                      setGroupCode(g);
-                      setError('');
-                    }}
-                    style={[
-                      styles.groupChip,
-                      isSelected && styles.groupChipSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.groupChipText,
-                        isSelected && styles.groupChipTextSelected,
-                      ]}
-                    >
-                      Lab. {g}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* ADD CUSTOM LAB */}
-            <View style={styles.addInlineBox}>
-              <Text style={styles.inputLabel}>+ Tambah Lab Baru</Text>
-              <View style={styles.inlineRow}>
-                <TextInput
-                  style={[styles.input, styles.inlineInput]}
-                  placeholder="Contoh: A3 atau A4"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="characters"
-                  value={customGroupInput}
-                  onChangeText={setCustomGroupInput}
-                />
-                <Pressable
-                  onPress={handleAddCustomGroup}
-                  disabled={!customGroupInput.trim()}
-                  style={[
-                    styles.inlineBtn,
-                    !customGroupInput.trim() && styles.btnDisabled,
-                  ]}
-                >
-                  <Ionicons name="add" size={16} color={colors.surface} />
-                  <Text style={styles.inlineBtnText}>Tambah</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.infoAlertBox}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.sageDark} />
-              <Text style={styles.infoAlertText}>
-                Praktikan yang mendaftar di lab praktikum ini ({groupCode ? `Lab. ${groupCode}` : '...'}) nantinya akan otomatis dapat melihat sesi ini pada dashboard masing-masing.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* ================================================= */}
-        {/* STEP 4: PILIH LABORATORIUM FISIK                 */}
-        {/* ================================================= */}
-        {currentStep === 4 && (
-          <View style={styles.stepBody}>
-            <View style={styles.contextSummaryBadge}>
-              <Ionicons name="people-outline" size={15} color={colors.primaryDark} />
-              <Text style={styles.contextSummaryText}>
-                Lab Praktikan: Lab. {groupCode} ({mainClass})
-              </Text>
-            </View>
-
-            <Text style={styles.stepInstruction}>
-              Pilih lokasi laboratorium fisik tempat praktikum berlangsung. Lokasi fisik terpisah dari kelompok praktikan, dan terhubung dengan radius presensi GPS.
+              Pilih lokasi laboratorium fisik tempat praktikum berlangsung. Lokasi fisik terhubung dengan radius presensi GPS.
             </Text>
 
             <View style={styles.cardList}>
@@ -787,9 +684,9 @@ const SessionFormContent = ({
         )}
 
         {/* ================================================= */}
-        {/* STEP 5: TENTUKAN JADWAL                          */}
+        {/* STEP 4: TENTUKAN JADWAL                          */}
         {/* ================================================= */}
-        {currentStep === 5 && (
+        {currentStep === 4 && (
           <View style={styles.stepBody}>
             <Text style={styles.stepInstruction}>
               Tentukan tanggal dan rentang jam sesi praktikum (WIB). Hari praktikum dihitung secara otomatis dan sinkron dengan tanggal.
@@ -938,9 +835,9 @@ const SessionFormContent = ({
         )}
 
         {/* ================================================= */}
-        {/* STEP 6: DETAIL MODUL & MATERI                    */}
+        {/* STEP 5: DETAIL MODUL & MATERI                    */}
         {/* ================================================= */}
-        {currentStep === 6 && (
+        {currentStep === 5 && (
           <View style={styles.stepBody}>
             <Text style={styles.stepInstruction}>
               Lengkapi materi pembelajaran modul yang relevan dengan mata praktikum {courseName}.
@@ -1019,9 +916,9 @@ const SessionFormContent = ({
         )}
 
         {/* ================================================= */}
-        {/* STEP 7: REVIEW & SIMPAN                          */}
+        {/* STEP 6: REVIEW & SIMPAN                          */}
         {/* ================================================= */}
-        {currentStep === 7 && (
+        {currentStep === 6 && (
           <View style={styles.stepBody}>
             <Text style={styles.stepInstruction}>
               Periksa ringkasan sesi praktikum sebelum menyimpan. Sesi baru akan otomatis berada di urutan paling atas.
@@ -1062,9 +959,9 @@ const SessionFormContent = ({
               <View style={styles.summaryRow}>
                 <Ionicons name="school" size={17} color={colors.primaryDark} />
                 <View style={styles.summaryMeta}>
-                  <Text style={styles.summaryLabel}>Kelas & Lab Praktikum</Text>
+                  <Text style={styles.summaryLabel}>Kelas Praktikum</Text>
                   <Text style={styles.summaryValue}>
-                    {mainClass} → Lab. {groupCode}
+                    {formatDisplayClass(mainClass)}
                   </Text>
                 </View>
               </View>
@@ -1158,7 +1055,7 @@ const SessionFormContent = ({
           </Pressable>
         )}
 
-        {currentStep < 7 ? (
+        {currentStep < 6 ? (
           <Pressable
             accessibilityRole="button"
             onPress={handleNextStep}

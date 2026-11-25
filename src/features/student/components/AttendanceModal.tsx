@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
 import type { SessionInfo, StudentInfo, SubmitResult } from '../types';
 import { MESSAGES, formatDateID, formatTimeRange } from '../studentUtils';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 const NOTES_MAX_LENGTH = 30;
 
@@ -138,7 +139,7 @@ const AttendanceModal = ({
             <View style={styles.infoCard}>
               <InfoRow label="Nama" value={student.name} />
               <InfoRow label="NIM" value={student.nim} />
-              <InfoRow label="Kelas" value={student.className} />
+              <InfoRow label="Kelas" value={formatDisplayClass(student.className)} />
             </View>
 
             <Text style={styles.sectionLabel}>Data Sesi Praktikum</Text>

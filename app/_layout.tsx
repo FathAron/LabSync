@@ -3,6 +3,10 @@ import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import {
+  AndroidImportance,
+  AndroidNotificationVisibility,
+} from 'expo-notifications';
+import {
   ActivityIndicator,
   Platform,
   StyleSheet,
@@ -44,6 +48,7 @@ const isAllowedNotificationPath = (value: unknown): value is string => {
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
+      shouldShowAlert: true,
       shouldShowBanner: true,
       shouldShowList: true,
       shouldPlaySound: true,
@@ -172,10 +177,10 @@ const AppShell = () => {
     if (Platform.OS === 'android') {
       void Notifications.setNotificationChannelAsync('default', {
         name: 'Notifikasi LabSync',
-        importance: Notifications.AndroidImportance.MAX,
+        importance: AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#2563EB',
-        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
         bypassDnd: false,
         enableLights: true,
         enableVibrate: true,

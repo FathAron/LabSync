@@ -13,7 +13,8 @@ export interface UserProfile {
   name: string;
   role: UserRole;
   nim: string; // wajib untuk student, opsional untuk assistant
-  className: string; // wajib untuk student (mis. 'IF-26-A'), '' untuk assistant
+  classCode?: string; // kode kelas utama terstandar (mis. 'C')
+  className: string; // wajib untuk student (mis. 'IF-26-A' atau 'Kelas C'), '' untuk assistant
   class: string; // alias kompatibilitas Sprint 1 untuk className
   assistantRole?: string; // mis. 'Koordinator Asisten' | 'Asisten Laboratorium'
   avatar: string; // 2 huruf inisial, mis. 'AS'
@@ -66,8 +67,11 @@ export interface Session {
   id: string;
   classId?: string; // referensi ke classes/{id}
   laboratoryId?: string; // referensi ke laboratories/{id}
-  mainClass?: string; // misal 'Kelas A'
-  groupCode?: string; // misal 'A1'
+  laboratoryName?: string; // nama tampilan laboratorium, misal 'Lab C1'
+  targetClassCode?: string; // kode kelas tujuan (mis. 'C')
+  targetClassName?: string; // nama tampilan kelas tujuan (mis. 'Kelas C')
+  mainClass?: string; // misal 'Kelas C'
+  groupCode?: string; // misal 'C'
   courseName: string;
   courseCode: string;
   moduleCode: string;
@@ -170,6 +174,9 @@ export interface ApiResponse<T = unknown> {
 }
 
 export interface CreateSessionInput {
+  targetClassCode?: string;
+  targetClassName?: string;
+  laboratoryName?: string;
   mainClass?: string;
   groupCode?: string;
   courseName: string;

@@ -14,7 +14,8 @@ import {
   type AttendanceRecord as MockAttendanceRecord,
   type Session as MockSession,
 } from '../data/mockData';
-import { formatTimeWIB, readStudent, sameId, sameText } from '../features/student/studentUtils';
+import { formatTimeWIB, readStudent, sameId } from '../features/student/studentUtils';
+import { isClassMatching } from '../utils/classUtils';
 import type { FeedbackType, Id } from '../features/student/types';
 import {
   loginUser,
@@ -327,10 +328,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (!targetSession) {
         return { success: false, ok: false, message: 'Data sesi tidak ditemukan.' };
       }
+      const sessionTargetClass =
+        ('targetClassCode' in targetSession && typeof targetSession.targetClassCode === 'string' && targetSession.targetClassCode) ||
+        ('mainClass' in targetSession && typeof targetSession.mainClass === 'string' && targetSession.mainClass) ||
+        targetSession.className;
       if (
-        targetSession.className !== '' &&
-        parsedStudent.className !== '' &&
-        !sameText(targetSession.className, parsedStudent.className)
+        sessionTargetClass !== '' &&
+        (parsedStudent.classCode || parsedStudent.className) !== '' &&
+        !isClassMatching(parsedStudent.classCode || parsedStudent.className, sessionTargetClass)
       ) {
         return { success: false, ok: false, message: 'Sesi ini bukan untuk kelasmu.' };
       }

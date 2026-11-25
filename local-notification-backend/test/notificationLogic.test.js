@@ -11,6 +11,8 @@ const {
   makeScheduleEventId,
   makeSessionOpenedEventId,
   buildScheduleNotification,
+  normalizeMainClass,
+  isClassMatching,
 } = require('../notificationLogic');
 
 test('normalize trims and compares class/status values consistently', () => {
@@ -163,4 +165,42 @@ test('new schedule notification is labelled as a new schedule', () => {
   });
 
   assert.equal(notification.title, 'Jadwal Praktikum Baru');
+});
+
+test('academic class matching: Class A matches sessions in Lab A1 and Lab A2, never Class B', () => {
+  // Case 1: Student A with Session A in Lab A1
+  assert.equal(isClassMatching('A', 'Kelas A'), true);
+  assert.equal(isClassMatching('Kelas A', 'A'), true);
+  assert.equal(isClassMatching('A', 'A'), true);
+  assert.equal(isClassMatching('Kelas A', 'Kelas A'), true);
+
+  // Case 2: Student A with Session B -> FALSE
+  assert.equal(isClassMatching('A', 'Kelas B'), false);
+  assert.equal(isClassMatching('Kelas A', 'Kelas B'), false);
+  assert.equal(isClassMatching('A', 'B'), false);
+
+  // Case 3: Student B with Session B -> TRUE
+  assert.equal(isClassMatching('B', 'Kelas B'), true);
+  assert.equal(isClassMatching('Kelas B', 'B'), true);
+
+  // Case 4: Student B with Session A -> FALSE
+  assert.equal(isClassMatching('B', 'Kelas A'), false);
+  assert.equal(isClassMatching('Kelas B', 'A'), false);
+
+  // Case 5: Student C with Session C -> TRUE
+  assert.equal(isClassMatching('C', 'Kelas C'), true);
+  assert.equal(isClassMatching('Kelas C', 'C'), true);
+  assert.equal(isClassMatching('KELAS C', 'C'), true);
+  assert.equal(isClassMatching('Kelas KELAS C', 'C'), true);
+
+  // Strict legacy format separation: IF-26-C MUST NOT match Class C
+  assert.equal(normalizeMainClass('IF-26-C'), 'IF-26-C');
+  assert.equal(normalizeMainClass('Kelas C'), 'C');
+  assert.equal(isClassMatching('C', 'IF-26-C'), false);
+  assert.equal(isClassMatching('IF-26-C', 'Kelas C'), false);
+  assert.equal(isClassMatching('IF-26-C', 'IF-26-C'), true);
+  assert.equal(isClassMatching('IF-26-C', 'Kelas A'), false);
+  assert.equal(isClassMatching('IF-26-A', 'Kelas A'), false);
+  assert.equal(isClassMatching('', 'C'), false);
+  assert.equal(isClassMatching(null, 'C'), false);
 });

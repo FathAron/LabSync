@@ -16,6 +16,11 @@ import {
 } from 'firebase/firestore';
 
 import { formatTimeWIB } from '../features/student/studentUtils';
+import {
+  formatDisplayClass,
+  isClassMatching,
+  normalizeClassCode,
+} from '../utils/classUtils';
 import { validateSessionScheduleRealtime } from '../utils/dateUtils';
 
 import type {
@@ -219,6 +224,11 @@ const normalizeSession = (
   const className = asString(
     raw.className || raw.class
   );
+  const targetClassCode =
+    asString(raw.targetClassCode) || normalizeClassCode(className);
+  const targetClassName =
+    asString(raw.targetClassName) || formatDisplayClass(className);
+  const laboratoryName = asString(raw.laboratoryName || raw.room);
 
   return {
     id,
@@ -228,6 +238,15 @@ const normalizeSession = (
     ...(typeof raw.laboratoryId === 'string' &&
     raw.laboratoryId.trim()
       ? { laboratoryId: raw.laboratoryId.trim() }
+      : {}),
+    ...(laboratoryName ? { laboratoryName } : {}),
+    targetClassCode,
+    targetClassName,
+    ...(typeof raw.mainClass === 'string' && raw.mainClass.trim()
+      ? { mainClass: raw.mainClass.trim() }
+      : {}),
+    ...(typeof raw.groupCode === 'string' && raw.groupCode.trim()
+      ? { groupCode: raw.groupCode.trim() }
       : {}),
     courseName: asString(raw.courseName),
     courseCode: asString(raw.courseCode),
@@ -838,8 +857,12 @@ export const createSession = async (
     }
 
     const resolvedGroupCode = input.groupCode?.trim().toUpperCase() || '';
-    const resolvedMainClass = input.mainClass?.trim() || '';
-    const resolvedClassName = (resolvedGroupCode || input.className).trim().toUpperCase();
+    const rawClass = input.targetClassName || input.className || input.mainClass || '';
+    const targetClassCode = normalizeClassCode(input.targetClassCode || rawClass);
+    const targetClassName = formatDisplayClass(targetClassCode || rawClass);
+    const resolvedMainClass = targetClassName;
+    const resolvedClassName = targetClassName;
+    const laboratoryName = input.laboratoryName?.trim() || input.room?.trim() || '';
 
     const classSnap = await getDocs(
       query(
@@ -886,6 +909,9 @@ export const createSession = async (
     const payload: Omit<Session, 'id'> = {
       ...(classId ? { classId } : {}),
       ...(laboratoryId ? { laboratoryId } : {}),
+      ...(laboratoryName ? { laboratoryName } : {}),
+      targetClassCode,
+      targetClassName,
       ...(resolvedMainClass ? { mainClass: resolvedMainClass } : {}),
       ...(resolvedGroupCode ? { groupCode: resolvedGroupCode } : {}),
       courseName: input.courseName.trim(),
@@ -1005,9 +1031,14 @@ export const updateSession = async (
       values.moduleTitle = patch.moduleTitle.trim();
     }
 
-    const nextClassName =
-      (patch.groupCode || patch.className)?.trim().toUpperCase() ??
-      current.className;
+    const rawPatchClass = patch.targetClassName || patch.className || patch.mainClass;
+    const targetClassCode = rawPatchClass
+      ? normalizeClassCode(patch.targetClassCode || rawPatchClass)
+      : current.targetClassCode;
+    const targetClassName = rawPatchClass
+      ? formatDisplayClass(rawPatchClass)
+      : (current.targetClassName || current.className);
+    const nextClassName = targetClassName;
 
     let classId = current.classId || '';
     let totalStudents = current.totalStudents || 0;
@@ -1045,9 +1076,16 @@ export const updateSession = async (
 
     values.className = nextClassName;
     values.class = nextClassName;
+    values.mainClass = nextClassName;
+    if (targetClassCode) values.targetClassCode = targetClassCode;
+    if (targetClassName) values.targetClassName = targetClassName;
+    if (patch.laboratoryId !== undefined) values.laboratoryId = patch.laboratoryId.trim();
+    if (patch.room !== undefined) {
+      values.room = patch.room.trim();
+      values.laboratoryName = patch.room.trim();
+    }
     if (classId) values.classId = classId;
     values.totalStudents = totalStudents;
-    if (patch.mainClass !== undefined) values.mainClass = patch.mainClass.trim();
     if (patch.groupCode !== undefined) values.groupCode = patch.groupCode.trim().toUpperCase();
 
     if (patch.day !== undefined) {
@@ -1456,11 +1494,18 @@ export const recordAttendance = async (
           );
         }
 
+        const sessionTargetClass =
+          session.targetClassCode ||
+          session.targetClassName ||
+          session.mainClass ||
+          session.className;
         if (
-          session.className &&
+          sessionTargetClass &&
           student.className &&
-          session.className.toLowerCase() !==
-            student.className.toLowerCase()
+          !isClassMatching(
+            student.classCode || student.className,
+            sessionTargetClass
+          )
         ) {
           throw new PracticumError(
             'Sesi ini bukan untuk kelasmu.',

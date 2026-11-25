@@ -16,6 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../../src/context/AppContext';
 import { CONTENT_MAX_WIDTH, colors, radius, spacing, theme } from '../../src/styles/theme';
 import type { UserRole } from '../../src/types/models';
+import { normalizeMainClass } from '../../src/utils/classUtils';
+
+const CLASS_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
@@ -47,7 +50,7 @@ export default function RegisterScreen() {
       return;
     }
     if (role === 'student' && !className.trim()) {
-      setErrorMsg('Kelas wajib diisi untuk praktikan (contoh: IF-26-A).');
+      setErrorMsg('Pilih kelas praktikum Anda (A, B, C, D, E, atau F).');
       return;
     }
     if (password.length < 6) {
@@ -63,7 +66,7 @@ export default function RegisterScreen() {
         password,
         role,
         nim: nim.trim(),
-        className: role === 'student' ? className.trim().toUpperCase() : '',
+        className: role === 'student' ? normalizeMainClass(className) || className.trim().toUpperCase() : '',
       });
       if (!res.ok) {
         setErrorMsg(res.message);
@@ -216,19 +219,40 @@ export default function RegisterScreen() {
 
             {role === 'student' ? (
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Kelas Praktikum</Text>
-                <View style={styles.inputWrap}>
-                  <Ionicons name="people-outline" size={18} color={colors.textMuted} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Contoh: IF-26-A"
-                    placeholderTextColor={colors.textMuted}
-                    autoCapitalize="characters"
-                    value={className}
-                    onChangeText={setClassName}
-                    editable={!submitting}
-                  />
+                <Text style={styles.label}>Pilih Kelas Utama</Text>
+                <View style={styles.classGrid}>
+                  {CLASS_OPTIONS.map((cls) => {
+                    const isSelected = className === cls;
+                    return (
+                      <Pressable
+                        key={cls}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: isSelected }}
+                        disabled={submitting}
+                        onPress={() => {
+                          setClassName(cls);
+                          setErrorMsg(null);
+                        }}
+                        style={[
+                          styles.classChip,
+                          isSelected && styles.classChipSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.classChipText,
+                            isSelected && styles.classChipTextSelected,
+                          ]}
+                        >
+                          {cls}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
+                <Text style={styles.classHint}>
+                  Pilih kelas akademik Anda: A, B, C, D, E, atau F.
+                </Text>
               </View>
             ) : null}
 
@@ -392,6 +416,40 @@ const styles = StyleSheet.create({
   roleChipTextActive: {
     fontWeight: '800',
     color: colors.text,
+  },
+  classGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  classChip: {
+    flex: 1,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+  },
+  classChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  classChipText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  classChipTextSelected: {
+    fontWeight: '800',
+    color: colors.primaryText,
+  },
+  classHint: {
+    marginTop: 6,
+    fontSize: 11,
+    color: colors.textMuted,
   },
   fieldGroup: {
     marginBottom: spacing.md,

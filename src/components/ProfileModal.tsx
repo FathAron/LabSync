@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { colors, radius, spacing, theme } from '../styles/theme';
+import { normalizeMainClass } from '../utils/classUtils';
 import {
   checkNotificationPermission,
   openDeviceSettings,
@@ -131,7 +132,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, onClose }) 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Kelas</Text>
               <Text style={styles.detailValue}>
-                {currentUser.className || (isAssistant ? 'Semua Kelas' : '-')}
+                {isAssistant
+                  ? 'Semua Kelas'
+                  : currentUser.className
+                  ? normalizeMainClass(currentUser.className)
+                  : '-'}
               </Text>
             </View>
 

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { usePracticum } from '../hooks/usePracticum';
 import { CONTENT_MAX_WIDTH, colors, radius, spacing, theme } from '../styles/theme';
+import { formatDisplayClass } from '../utils/classUtils';
 import { NotificationModal } from './NotificationModal';
 import { ProfileModal } from './ProfileModal';
 import { NotificationPermissionBanner } from './NotificationPermissionBanner';
@@ -39,7 +40,7 @@ export const Header = () => {
   const firstName = currentUser.name.split(' ')[0] || currentUser.name;
   const subtitle = isAssistant
     ? currentUser.assistantRole || 'Asisten Laboratorium'
-    : `NIM ${currentUser.nim || '-'} • Kelas ${currentUser.className || '-'}`;
+    : `NIM ${currentUser.nim || '-'} • ${formatDisplayClass(currentUser.className) || '-'}`;
 
   return (
     <>

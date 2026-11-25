@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
 import type { HistoryEntry } from '../types';
 import { formatDateID, formatTimeWIB } from '../studentUtils';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -52,7 +53,7 @@ const HistoryItem = ({ record, session }: HistoryEntry) => {
       {/* Details Box */}
       <View style={styles.body}>
         {session && session.className ? (
-          <Row icon="people-outline" text={`Kelas ${session.className}`} />
+          <Row icon="people-outline" text={formatDisplayClass(session.className)} />
         ) : null}
         <Row icon="calendar-outline" text={dateText} />
         <Row icon="time-outline" text={`Waktu kehadiran: ${timeText}`} />

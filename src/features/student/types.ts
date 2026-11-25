@@ -10,6 +10,7 @@ export interface StudentInfo {
   id: Id;
   name: string;
   nim: string;
+  classCode?: string;
   className: string;
   raw: unknown; 
 }
@@ -20,6 +21,8 @@ export interface SessionInfo {
   courseName: string;
   moduleCode: string;
   moduleTitle: string;
+  targetClassCode?: string;
+  targetClassName?: string;
   className: string;
   mainClass?: string;
   groupCode?: string;

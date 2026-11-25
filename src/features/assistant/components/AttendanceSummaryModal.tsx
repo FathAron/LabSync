@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Session, AttendanceRecord } from '../../../types/models';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
 import { formatTimeWIB } from '../../student/studentUtils';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 interface AttendanceSummaryModalProps {
   visible: boolean;
@@ -90,7 +91,7 @@ const AttendanceSummaryModal = ({
               <Text style={styles.eyebrow}>REKAP KEHADIRAN</Text>
               <Text style={styles.title}>Rekap Presensi Sesi</Text>
               <Text style={styles.subtitle}>
-                {session.courseName} · Kelas {session.className}
+                {session.courseName} · {formatDisplayClass(session.className)}
               </Text>
             </View>
 
