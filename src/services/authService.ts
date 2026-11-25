@@ -7,6 +7,7 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import type { ApiErrorCode, ApiResponse, UserProfile, UserRole } from '../types/models';
 import { auth, db, isFirebaseConfigured } from './firebaseConfig';
+import { normalizeMainClass } from '../utils/classUtils';
 
 let isRegistering = false;
 
@@ -100,6 +101,12 @@ const normalizeUserProfile = (uid: string, raw: Record<string, unknown>): UserPr
       : role === 'student' && typeof raw.class === 'string'
       ? raw.class.trim()
       : '';
+  const classCode =
+    role === 'student' && typeof raw.classCode === 'string'
+      ? raw.classCode.trim()
+      : role === 'student'
+      ? normalizeMainClass(className)
+      : '';
   const nowIso = new Date().toISOString();
 
   return {
@@ -109,6 +116,7 @@ const normalizeUserProfile = (uid: string, raw: Record<string, unknown>): UserPr
     name,
     role,
     nim: typeof raw.nim === 'string' ? raw.nim : '',
+    classCode,
     className,
     class: className,
     assistantRole:
@@ -165,7 +173,7 @@ export const registerUser = async (payload: RegisterPayload): Promise<ApiRespons
     return makeError('NIM wajib diisi untuk praktikan.', 'VALIDATION_ERROR');
   }
   if (role === 'student' && !className) {
-    return makeError('Kelas wajib diisi untuk praktikan (contoh: IF-26-A).', 'VALIDATION_ERROR');
+    return makeError('Kelas wajib dipilih untuk praktikan (pilih A, B, C, D, E, atau F).', 'VALIDATION_ERROR');
   }
   if (!isFirebaseConfigured) {
     return makeError('Konfigurasi Firebase belum diatur. Lengkapi file .env terlebih dahulu.', 'INTERNAL_ERROR');
@@ -176,7 +184,8 @@ export const registerUser = async (payload: RegisterPayload): Promise<ApiRespons
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     const uid = credential.user.uid;
     const nowIso = new Date().toISOString();
-    const resolvedClass = role === 'student' ? className : '';
+    const normalizedClass = normalizeMainClass(className) || className;
+    const resolvedClass = role === 'student' ? normalizedClass : '';
 
     const profileData: Record<string, unknown> = {
       uid,
@@ -185,6 +194,7 @@ export const registerUser = async (payload: RegisterPayload): Promise<ApiRespons
       name,
       role,
       nim,
+      classCode: role === 'student' ? normalizedClass : '',
       className: resolvedClass,
       class: resolvedClass,
       avatar: getInitials(name),

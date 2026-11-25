@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
 import type { StudentInfo } from '../types';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 const getInitials = (name: string): string => {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -20,7 +21,7 @@ export const StudentProfileCard = ({ student }: { student: StudentInfo }) => (
       <Text style={styles.name}>{student.name}</Text>
       <Text style={styles.meta}>
         NIM {student.nim}
-        {student.className ? `  •  Kelas ${student.className}` : ''}
+        {student.className ? `  •  ${formatDisplayClass(student.className)}` : ''}
       </Text>
     </View>
   </View>

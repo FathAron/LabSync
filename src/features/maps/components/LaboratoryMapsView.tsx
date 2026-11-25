@@ -39,6 +39,7 @@ import {
   openDeviceSettings,
 } from '../../../services/permissionService';
 import { normalizePracticumSnapshot } from '../../../services/practicumService';
+import { formatDisplayClass } from '../../../utils/classUtils';
 import {
   CONTENT_MAX_WIDTH,
   colors,
@@ -403,7 +404,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
         </Text>
 
         <Text style={styles.sessionMeta}>
-          Kelas {session.className} • {dateLabel} • {timeLabel}
+          {formatDisplayClass(session.className)} • {dateLabel} • {timeLabel}
         </Text>
       </View>
     );

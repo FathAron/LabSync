@@ -3,6 +3,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { LeaveRequest } from '../../../types/models';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 interface LeaveStatusCardProps {
   request: LeaveRequest;
@@ -54,7 +55,7 @@ const LeaveStatusCard: React.FC<LeaveStatusCardProps> = ({ request }) => {
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={styles.courseTitle}>{request.sessionTitle}</Text>
-          <Text style={styles.className}>Kelas {request.className}</Text>
+          <Text style={styles.className}>{formatDisplayClass(request.className)}</Text>
         </View>
 
         <View

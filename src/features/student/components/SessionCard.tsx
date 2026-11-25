@@ -10,6 +10,7 @@ import {
   formatTimeRange,
   formatTimeWIB,
 } from '../studentUtils';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -68,7 +69,7 @@ const SessionCard = ({
 
         {session.className ? (
           <View style={styles.classPill}>
-            <Text style={styles.classPillText}>Kelas {session.className}</Text>
+            <Text style={styles.classPillText}>{formatDisplayClass(session.className)}</Text>
           </View>
         ) : null}
       </View>

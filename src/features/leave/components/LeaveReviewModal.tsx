@@ -18,6 +18,7 @@ import type {
   LeaveRequest,
 } from '../../../types/models';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 interface LeaveReviewModalProps {
   visible: boolean;
@@ -139,7 +140,7 @@ const LeaveReviewModal = ({
               <View style={styles.studentDetails}>
                 <Text style={styles.studentName}>{request.studentName}</Text>
                 <Text style={styles.studentMeta}>
-                  NIM {request.studentNim} · Kelas {request.className}
+                  NIM {request.studentNim} · {formatDisplayClass(request.className)}
                 </Text>
               </View>
             </View>

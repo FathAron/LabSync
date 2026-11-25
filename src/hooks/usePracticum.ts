@@ -43,6 +43,7 @@ import {
   updateClass as updateClassService,
   updateSession as updateSessionService,
 } from '../services/practicumService';
+import { isClassMatching } from '../utils/classUtils';
 
 // ==========================================
 // ERROR HELPER
@@ -82,9 +83,6 @@ export const usePracticum = (): UsePracticumResult => {
   // Identitas pengguna
   const userId = currentUser?.uid ?? '';
   const userRole = currentUser?.role ?? null;
-
-  const userClassName =
-    currentUser?.className?.trim().toUpperCase() ?? '';
 
   // ==========================================
   // FIRESTORE REAL-TIME LISTENERS
@@ -195,56 +193,32 @@ export const usePracticum = (): UsePracticumResult => {
     // CLASSES LISTENER
     // ==========================================
 
-    const classesQuery =
-      userRole === 'assistant'
-        ? collection(db, 'classes')
-        : userClassName
-          ? query(
-              collection(db, 'classes'),
-              where('name', '==', userClassName)
-            )
-          : null;
+    const classesQuery = collection(db, 'classes');
 
-    if (classesQuery) {
-      subscribe(
-        'classes',
-        'Gagal memuat kelas',
-        classesQuery,
-        (snapshot) =>
-          snapshot.docs.map((item) =>
-            normalizePracticumSnapshot.normalizeClass(
-              item.data(),
-              item.id
-            )
-          ),
-        setClasses
-      );
-    } else {
-      queueMicrotask(() => {
-        setClasses([]);
-        markSourceReady('classes');
-      });
-    }
+    subscribe(
+      'classes',
+      'Gagal memuat kelas',
+      classesQuery,
+      (snapshot) =>
+        snapshot.docs.map((item) =>
+          normalizePracticumSnapshot.normalizeClass(
+            item.data(),
+            item.id
+          )
+        ),
+      setClasses
+    );
 
     // ==========================================
     // SESSIONS LISTENER
     // ==========================================
 
-    const sessionsQuery =
-      userRole === 'assistant'
-        ? collection(db, 'sessions')
-        : userClassName
-          ? query(
-              collection(db, 'sessions'),
-              where('className', '==', userClassName)
-            )
-          : null;
+    const sessionsQuery = collection(db, 'sessions');
 
-    if (sessionsQuery) {
-      subscribe(
-        'sessions',
-        'Gagal memuat jadwal praktikum',
-        sessionsQuery,
+    subscribe(
+      'sessions',
+      'Gagal memuat jadwal praktikum',
+      sessionsQuery,
         (snapshot) =>
           snapshot.docs
             .map((item) =>
@@ -275,12 +249,6 @@ export const usePracticum = (): UsePracticumResult => {
             }),
         setSessions
       );
-    } else {
-      queueMicrotask(() => {
-        setSessions([]);
-        markSourceReady('sessions');
-      });
-    }
 
     // ==========================================
     // STUDENTS LISTENER
@@ -354,13 +322,12 @@ export const usePracticum = (): UsePracticumResult => {
     currentUser,
     reportError,
     setSyncError,
-    userClassName,
     userId,
     userRole,
   ]);
 
   // ==========================================
-  // DATA UNTUK ASSISTANT
+  // DATA UNTUK ASSISTANT & STUDENT
   // ==========================================
 
   // Menghitung jumlah praktikan berdasarkan profil terbaru
@@ -371,9 +338,7 @@ export const usePracticum = (): UsePracticumResult => {
 
     return classes.map((item) => {
       const members = students.filter(
-        (student) =>
-          student.className.trim().toUpperCase() ===
-          item.name.trim().toUpperCase()
+        (student) => isClassMatching(student.className, item.name)
       );
 
       return {
@@ -384,25 +349,36 @@ export const usePracticum = (): UsePracticumResult => {
     });
   }, [classes, students, studentsLoaded, userRole]);
 
-  // Menyesuaikan jumlah praktikan pada setiap sesi
+  // Menyesuaikan data sesi untuk asisten (hitung mahasiswa) atau praktikan (filter kelas)
   const visibleSessions = useMemo(() => {
-    if (userRole !== 'assistant' || !studentsLoaded) {
-      return sessions;
+    if (userRole === 'assistant') {
+      if (!studentsLoaded) {
+        return sessions;
+      }
+
+      return sessions.map((item) => {
+        const totalStudents = students.filter(
+          (student) => isClassMatching(student.className, item.className)
+        ).length;
+
+        return {
+          ...item,
+          totalStudents,
+        };
+      });
     }
 
-    return sessions.map((item) => {
-      const totalStudents = students.filter(
-        (student) =>
-          student.className.trim().toUpperCase() ===
-          item.className.trim().toUpperCase()
-      ).length;
+    if (userRole === 'student') {
+      const studentClass = currentUser?.classCode || currentUser?.className;
+      if (!studentClass) return sessions;
+      return sessions.filter((session) => {
+        const targetClass = session.targetClassCode || session.mainClass || session.className;
+        return isClassMatching(studentClass, targetClass);
+      });
+    }
 
-      return {
-        ...item,
-        totalStudents,
-      };
-    });
-  }, [sessions, students, studentsLoaded, userRole]);
+    return sessions;
+  }, [sessions, students, studentsLoaded, userRole, currentUser?.className, currentUser?.classCode]);
 
   // ==========================================
   // ATTENDANCE HELPER

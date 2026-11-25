@@ -25,6 +25,7 @@ import {
   getNotificationErrorMessage,
   requestNotificationPermission,
 } from './permissionService';
+import { isClassMatching } from '../utils/classUtils';
 
 type NotificationServiceErrorCode =
   | 'UNAUTHENTICATED'
@@ -412,12 +413,6 @@ export const sendExpoPushMessages = async (
   return { success: errors.length === 0, sentCount, errors };
 };
 
-const normalizeClassStr = (val: unknown): string =>
-  String(val ?? '')
-    .trim()
-    .toUpperCase()
-    .replace(/^KELAS\s+/i, '');
-
 export const getStudentPushTokensForSession = async (
   session: Session
 ): Promise<string[]> => {
@@ -448,36 +443,22 @@ export const getStudentPushTokensForSession = async (
     );
     const usersSnap = await getDocs(usersQuery);
 
-    const sessionClasses = new Set(
-      [
-        session.className,
-        session.class,
-        session.groupCode,
-        session.mainClass,
-      ]
-        .map(normalizeClassStr)
-        .filter(Boolean)
-    );
+    const sessionTargetClass =
+      session.targetClassCode ||
+      session.targetClassName ||
+      session.mainClass ||
+      session.className ||
+      session.class;
 
     for (const uDoc of usersSnap.docs) {
       const data = uDoc.data();
-      const userClass = normalizeClassStr(data.className || data.class);
+      const userClass = data.classCode || data.className || data.class;
 
       const matches =
         candidateUids.has(uDoc.id) ||
-        (userClass && sessionClasses.has(userClass)) ||
-        [...sessionClasses].some(
-          (sc) => sc && (userClass.includes(sc) || sc.includes(userClass))
-        );
+        (sessionTargetClass && userClass && isClassMatching(userClass, sessionTargetClass));
 
       if (matches) {
-        candidateUids.add(uDoc.id);
-      }
-    }
-
-    // Fallback: Jika tidak ada siswa yang cocok dengan filter spesifik, sertakan semua siswa aktif
-    if (candidateUids.size === 0 && usersSnap.docs.length > 0) {
-      for (const uDoc of usersSnap.docs) {
         candidateUids.add(uDoc.id);
       }
     }

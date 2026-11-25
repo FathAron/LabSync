@@ -16,12 +16,12 @@ import {
   findStudentRecord,
   readStudent,
   sameId,
-  sameText,
   sortSessions,
   timestampToMs,
   toRecords,
   toSessions,
 } from './studentUtils';
+import { isClassMatching } from '../../utils/classUtils';
 
 export const useStudentModule = () => {
   // Identitas praktikan berasal dari Firebase Auth/AppContext.
@@ -73,15 +73,8 @@ export const useStudentModule = () => {
     if (!studentClass) return sortSessions(allSessions);
 
     const filtered = allSessions.filter((session) => {
-      const sessClass = session.className.trim().toLowerCase();
-      const sessGroup = (session.groupCode || '').trim().toLowerCase();
-      if (!sessClass && !sessGroup) return true;
-      return (
-        sessClass === studentClass ||
-        sessGroup === studentClass ||
-        (sessGroup && studentClass.includes(sessGroup)) ||
-        (sessClass && studentClass.includes(sessClass))
-      );
+      const targetClass = session.targetClassCode || session.mainClass || session.className;
+      return isClassMatching(student.classCode || student.className, targetClass);
     });
 
     return sortSessions(filtered);
@@ -209,13 +202,15 @@ export const useStudentModule = () => {
         };
       }
 
-      // Periksa kesesuaian kelas.
+      // Periksa kesesuaian kelas (kelas utama praktikan vs kelas target sesi).
+      const sessionTargetClass =
+        session.targetClassCode || session.mainClass || session.className;
       if (
-        session.className !== '' &&
+        sessionTargetClass !== '' &&
         student.className !== '' &&
-        !sameText(
-          session.className,
-          student.className
+        !isClassMatching(
+          student.classCode || student.className,
+          sessionTargetClass
         )
       ) {
         return {

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Session } from '../../../types/models';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
 import { formatSessionDate } from '../../../utils/dateUtils';
+import { formatDisplayClass } from '../../../utils/classUtils';
 
 export type SessionAction = 'open' | 'close';
 
@@ -104,14 +105,14 @@ const SessionControlModal = ({
 
           <Text style={styles.description}>
             {isOpening
-              ? `Sesi ${session.courseName} untuk kelas ${session.className} akan dibuka. Praktikan yang berada di radius laboratorium dapat mulai mengirim presensi.`
-              : `Sesi ${session.courseName} untuk kelas ${session.className} akan ditutup. Praktikan tidak dapat lagi melakukan presensi mandiri.`}
+              ? `Sesi ${session.courseName} untuk ${formatDisplayClass(session.className)} akan dibuka. Praktikan yang berada di radius laboratorium dapat mulai mengirim presensi.`
+              : `Sesi ${session.courseName} untuk ${formatDisplayClass(session.className)} akan ditutup. Praktikan tidak dapat lagi melakukan presensi mandiri.`}
           </Text>
 
           <View style={styles.sessionInfo}>
             <View style={styles.moduleTag}>
               <Text style={styles.moduleCode}>
-                {session.moduleCode} · Kelas {session.className}
+                {session.moduleCode} · {formatDisplayClass(session.className)}
               </Text>
             </View>
 

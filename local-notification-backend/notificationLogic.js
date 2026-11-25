@@ -17,6 +17,40 @@ const SCHEDULE_FIELDS = [
 
 const normalize = (value) => String(value ?? '').trim().toUpperCase();
 
+const normalizeMainClass = (input) => {
+  if (typeof input !== 'string') return '';
+  let trimmed = input.trim().toUpperCase();
+  if (!trimmed) return '';
+
+  trimmed = trimmed.replace(/^(KELAS\s+)+/i, '').trim();
+
+  // 1. Jika single letter A-F (kelas akademik utama baru)
+  if (/^[A-F]$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // 2. Format lama IF-xx-x (contoh: IF-26-C, IF-26-A)
+  // JANGAN diekstrak huruf terakhirnya! Pertahankan sebagai identitas kelas testing lama.
+  if (/^IF-\d{2}-[A-Z0-9]+$/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^LAB\.?\s+/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return trimmed;
+};
+
+const isClassMatching = (studentClass, sessionClass) => {
+  const normStudent = normalizeMainClass(studentClass);
+  const normSession = normalizeMainClass(sessionClass);
+  if (!normStudent || !normSession) {
+    return false;
+  }
+  return normStudent === normSession;
+};
+
 const normalizeField = (value) => {
   if (value === null || value === undefined) return '';
   return String(value).trim();
@@ -46,7 +80,11 @@ const shouldNotifyLeaveReviewed = (previousLeave, currentLeave) =>
 
 const getAffectedClassNames = (previousSession, currentSession) => {
   const values = [
+    previousSession?.targetClassCode,
+    previousSession?.targetClassName,
     previousSession?.className || previousSession?.class,
+    currentSession?.targetClassCode,
+    currentSession?.targetClassName,
     currentSession?.className || currentSession?.class,
   ]
     .map((value) => String(value ?? '').trim())
@@ -120,4 +158,6 @@ module.exports = {
   makeScheduleEventId,
   makeSessionOpenedEventId,
   buildScheduleNotification,
+  normalizeMainClass,
+  isClassMatching,
 };

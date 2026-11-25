@@ -105,11 +105,15 @@ export const readStudent = (student: unknown): StudentInfo | null => {
   const id = asId(pickFirst(student, ['id', 'studentId', 'nim']));
   if (id === undefined) return null; // tanpa ID, identitas dianggap belum tersedia
 
+  const className = asText(pickFirst(student, ['className', 'class', 'kelas']));
+  const classCode = asText(pickFirst(student, ['classCode'])) || className;
+
   return {
     id,
     name: asText(pickFirst(student, ['name', 'fullName', 'nama']), 'Tanpa nama'),
     nim: asText(pickFirst(student, ['nim', 'studentNumber']), '-'),
-    className: asText(pickFirst(student, ['className', 'class', 'kelas'])),
+    classCode,
+    className,
     raw: student,
   };
 };
@@ -133,6 +137,8 @@ export const readSession = (session: unknown): SessionInfo | null => {
 
   const mainClassVal = asText(pickFirst(session, ['mainClass']));
   const groupCodeVal = asText(pickFirst(session, ['groupCode']));
+  const targetClassCodeVal = asText(pickFirst(session, ['targetClassCode']));
+  const targetClassNameVal = asText(pickFirst(session, ['targetClassName']));
 
   return {
     id,
@@ -143,7 +149,9 @@ export const readSession = (session: unknown): SessionInfo | null => {
     ),
     moduleCode: asText(pickFirst(session, ['moduleCode', 'sessionCode', 'code', 'module'])),
     moduleTitle: asText(pickFirst(session, ['moduleTitle', 'moduleName', 'topic'])),
-    className: asText(pickFirst(session, ['groupCode', 'className', 'class', 'kelas'])),
+    className: asText(pickFirst(session, ['mainClass', 'className', 'class', 'kelas'])),
+    ...(targetClassCodeVal ? { targetClassCode: targetClassCodeVal } : {}),
+    ...(targetClassNameVal ? { targetClassName: targetClassNameVal } : {}),
     ...(mainClassVal ? { mainClass: mainClassVal } : {}),
     ...(groupCodeVal ? { groupCode: groupCodeVal } : {}),
     date: pickFirst(session, ['date', 'sessionDate']),

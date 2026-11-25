@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import {
   AndroidImportance,
+  AndroidNotificationVisibility,
   IosAuthorizationStatus,
 } from 'expo-notifications';
 
@@ -173,6 +174,11 @@ export const requestNotificationPermission = async (): Promise<PermissionCheckRe
         importance: AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#2563EB',
+        lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: false,
+        enableLights: true,
+        enableVibrate: true,
+        showBadge: true,
       });
     }
 

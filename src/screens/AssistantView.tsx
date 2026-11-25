@@ -19,6 +19,7 @@ import {
   formatTimeRange,
 } from '../features/student/studentUtils';
 import { formatSessionDate } from '../utils/dateUtils';
+import { formatDisplayClass } from '../utils/classUtils';
 import {
   CONTENT_MAX_WIDTH,
   colors,
@@ -155,7 +156,7 @@ export const AssistantView = () => {
   const handleDeleteSession = (session: Session) => {
     Alert.alert(
       'Hapus Sesi Praktikum?',
-      `Apakah kamu yakin ingin menghapus ${session.courseName} - ${session.moduleCode} untuk kelas ${session.className}?`,
+      `Apakah kamu yakin ingin menghapus ${session.courseName} - ${session.moduleCode} untuk ${formatDisplayClass(session.className)}?`,
       [
         { text: 'Batal', style: 'cancel' },
         {
@@ -282,7 +283,7 @@ export const AssistantView = () => {
         {/* TOP ROW */}
         <View style={styles.cardTopRow}>
           <View style={styles.classPill}>
-            <Text style={styles.classPillText}>Kelas {item.className}</Text>
+            <Text style={styles.classPillText}>{formatDisplayClass(item.className)}</Text>
           </View>
           <StatusBadge status={item.status} />
         </View>

@@ -15,6 +15,7 @@ import type {
   LeaveRequest,
 } from '../../../types/models';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
+import { formatDisplayClass } from '../../../utils/classUtils';
 import StatusBadge from '../../../components/StatusBadge';
 import EmptyState from '../../../components/EmptyState';
 import LeaveReviewModal from './LeaveReviewModal';
@@ -109,7 +110,7 @@ const AssistantLeaveSection = () => {
                   <View style={styles.studentInfo}>
                     <Text style={styles.studentName}>{request.studentName}</Text>
                     <Text style={styles.studentMeta}>
-                      NIM {request.studentNim} · Kelas {request.className}
+                      NIM {request.studentNim} · {formatDisplayClass(request.className)}
                     </Text>
                   </View>
 

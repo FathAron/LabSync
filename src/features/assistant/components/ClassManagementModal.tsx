@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AppModal from '../../../components/AppModal';
 import EmptyState from '../../../components/EmptyState';
 import { colors, radius, spacing } from '../../../styles/theme';
+import { formatDisplayClass, isClassMatching } from '../../../utils/classUtils';
 
 import type {
   ApiResponse,
@@ -103,8 +104,7 @@ const ClassManagementContent = ({
     () =>
       students.filter(
         (student) =>
-          student.className.toUpperCase() ===
-          (selectedClass?.name ?? '').toUpperCase()
+          isClassMatching(student.className, selectedClass?.name ?? '')
       ),
     [selectedClass, students]
   );
@@ -239,10 +239,10 @@ const ClassManagementContent = ({
         </View>
 
         <Field
-          label="Nama Kelas (contoh: IF-26-A)"
+          label="Nama Kelas (contoh: A, B, C, D, E, F)"
           value={className}
           onChangeText={setClassName}
-          placeholder="A1"
+          placeholder="C"
         />
 
         <Field
@@ -283,15 +283,14 @@ const ClassManagementContent = ({
 
   if (selectedClass) {
     const unassignedStudents = students.filter(
-      (student) =>
-        student.className.toUpperCase() !== selectedClass.name.toUpperCase()
+      (student) => !isClassMatching(student.className, selectedClass.name)
     );
 
     return (
       <View style={styles.detailContainer}>
         <View style={styles.subHeader}>
           <View style={styles.grow}>
-            <Text style={styles.sectionTitle}>Kelas {selectedClass.name}</Text>
+            <Text style={styles.sectionTitle}>{formatDisplayClass(selectedClass.name)}</Text>
             <Text style={styles.muted}>
               {selectedClass.courseCode} · {selectedClass.courseName}
             </Text>
@@ -419,7 +418,7 @@ const ClassManagementContent = ({
               onPress={() => setSelectedClassId(item.id)}
             >
               <View style={styles.classNameRow}>
-                <Text style={styles.className}>Kelas {item.name}</Text>
+                <Text style={styles.className}>{formatDisplayClass(item.name)}</Text>
                 <View style={styles.classCountBadge}>
                   <Text style={styles.classCountText}>
                     {item.totalStudents} Mhs

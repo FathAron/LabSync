@@ -11,6 +11,7 @@
  */
 
 import type { Session } from '../types/models';
+import { formatDisplayClass, normalizeMainClass } from './classUtils';
 
 export interface ScheduleConflictCheckInput {
   date: string; // YYYY-MM-DD
@@ -76,7 +77,6 @@ export const checkScheduleConflicts = ({
   }
 
   const normalizedDate = date.trim();
-  const normalizedGroup = groupCode.trim().toUpperCase();
   const normalizedRoom = room.trim().toLowerCase();
 
   for (const s of existingSessions) {
@@ -117,11 +117,12 @@ export const checkScheduleConflicts = ({
       );
     }
 
-    // 2. CEK BENTROK LAB PRAKTIKUM
-    const sGroup = (s.groupCode || s.className || '').trim().toUpperCase();
-    if (normalizedGroup && sGroup === normalizedGroup) {
+    // 2. CEK BENTROK KELAS PRAKTIKAN
+    const sClassNorm = normalizeMainClass(s.mainClass || s.className);
+    const targetClassNorm = normalizeMainClass(groupCode);
+    if (targetClassNorm && sClassNorm === targetClassNorm) {
       groupConflicts.push(
-        `Lab. "${groupCode}" sudah memiliki sesi lain "${s.courseName}" pada pukul ${s.startTime} - ${s.endTime} WIB.`
+        `${formatDisplayClass(targetClassNorm)} sudah memiliki sesi lain "${s.courseName}" pada pukul ${s.startTime} - ${s.endTime} WIB.`
       );
     }
   }
