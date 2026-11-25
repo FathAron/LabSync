@@ -35,7 +35,8 @@ const initializeFirebase = () => {
   const projectId =
     process.env.FIREBASE_PROJECT_ID ||
     process.env.GCLOUD_PROJECT ||
-    process.env.GOOGLE_CLOUD_PROJECT;
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    'labsync-c8e1a';
 
   if (!projectId) {
     throw new Error(
@@ -126,6 +127,28 @@ const getTokensForClassNames = async (classNames) => {
     }
   }
 
+  // Fallback: Jika tidak ada token cocok berdasarkan nama kelas spesifik,
+  // ambil dari seluruh praktikan aktif untuk memastikan notifikasi tetap terkirim
+  if (tokens.length === 0) {
+    try {
+      const allStudents = await db
+        .collection('users')
+        .where('role', '==', 'student')
+        .get();
+      for (const userDoc of allStudents.docs) {
+        const userTokens = await getTokensFromUser(userDoc);
+        for (const item of userTokens) {
+          if (!seenTokens.has(item.token)) {
+            seenTokens.add(item.token);
+            tokens.push(item);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[RECIPIENT] Fallback error:', err.message);
+    }
+  }
+
   console.log(
     `[RECIPIENT] Class(es) ${[...requestedClasses.values()].join(', ')}: ${tokens.length} active token(s).`
   );
@@ -155,7 +178,6 @@ const sendExpoPush = async (tokens, notification) => {
     const batch = tokens.slice(start, start + MAX_MESSAGES_PER_REQUEST);
     const messages = batch.map((item) => ({
       to: item.token,
-      sound: 'default',
       title: notification.title,
       body: notification.body,
       data: notification.data,
@@ -235,8 +257,8 @@ const dispatchNotification = async (event) => {
       Date.now() - updatedAtMillis > STALE_SENDING_LOCK_MS;
 
     if (
-      ['SENT', 'PARTIAL', 'NO_RECIPIENTS'].includes(status) ||
-      (status === 'SENDING' && !staleSending)
+      ['SENT', 'PARTIAL', 'NO_RECIPIENTS', 'COMPLETED'].includes(status) ||
+      ((status === 'SENDING' || status === 'IN_PROGRESS') && !staleSending)
     ) {
       return false;
     }
@@ -334,18 +356,37 @@ const getUpdateTimeKey = (documentSnapshot) => {
 
 const handleSessionOpened = async (sessionId, session, updateTimeMillis) => {
   const className = String(session.className || session.class || '').trim();
-  if (!className) {
-    throw new Error(`Session ${sessionId} has no class name.`);
-  }
+  const candidateClasses = [
+    session.className,
+    session.class,
+    session.groupCode,
+    session.mainClass,
+  ].filter(Boolean);
 
   const courseName = session.courseName || 'Praktikum';
   const moduleCode = session.moduleCode || '';
+
+  // Periksa apakah notifikasi sudah dikirim langsung oleh aplikasi mobile (client-side)
+  const clientDispatchSnap = await db
+    .collection(DISPATCH_COLLECTION)
+    .doc(`session-${sessionId}-opened`)
+    .get();
+
+  if (
+    clientDispatchSnap.exists &&
+    ['SENT', 'COMPLETED', 'PARTIAL'].includes(clientDispatchSnap.get('status'))
+  ) {
+    console.log(
+      `[DUPLICATE] Sesi ${sessionId} sudah dikirimkan langsung oleh aplikasi mobile.`
+    );
+    return;
+  }
 
   await dispatchNotification({
     eventId: makeSessionOpenedEventId(sessionId, updateTimeMillis),
     eventType: 'SESSION_OPENED',
     sourceId: sessionId,
-    resolveRecipients: () => getTokensForClassNames([className]),
+    resolveRecipients: () => getTokensForClassNames(candidateClasses.length ? candidateClasses : [className]),
     notification: {
       title: 'Sesi Praktikum Dibuka',
       body: `${courseName}${moduleCode ? ` - ${moduleCode}` : ''} untuk kelas ${className} telah dibuka.`,
