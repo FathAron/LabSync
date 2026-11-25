@@ -236,9 +236,14 @@ export const subscribeLaboratories = (
             item.id
           )
         )
-        .sort((a, b) =>
-          a.name.localeCompare(b.name, 'id-ID')
-        );
+        .sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          if (timeB !== timeA) {
+            return timeB - timeA;
+          }
+          return a.name.localeCompare(b.name, 'id-ID');
+        });
 
       onData(items);
     },

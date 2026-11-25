@@ -23,9 +23,9 @@ export interface UserProfile {
 
 export interface LabClass {
   id: string;
-  name: string; // mis. 'IF-26-A'
-  courseCode: string; // mis. 'CSG3H3'
-  courseName: string; // mis. 'Pemrograman Perangkat Bergerak'
+  name: string; // mis. 'A1'
+  courseCode: string; // mis. 'PAIK6101'
+  courseName: string; // mis. 'Dasar Pemrograman'
   assistantId: string;
   assistantName: string;
   studentIds: string[]; // array of user.uid praktikan terdaftar
@@ -66,6 +66,8 @@ export interface Session {
   id: string;
   classId?: string; // referensi ke classes/{id}
   laboratoryId?: string; // referensi ke laboratories/{id}
+  mainClass?: string; // misal 'Kelas A'
+  groupCode?: string; // misal 'A1'
   courseName: string;
   courseCode: string;
   moduleCode: string;
@@ -87,6 +89,7 @@ export interface Session {
   notes: string;
   createdAt: string;
   updatedAt: string;
+  lastActivityAt?: string | null; // ISO UTC string untuk pengurutan aktivitas terbaru
 }
 
 export interface AttendanceRecord {
@@ -115,6 +118,16 @@ export interface AIClassificationResult {
   classifiedAt: string; // ISO 8601 UTC string
 }
 
+export interface LeaveAttachmentMeta {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  storagePath: string;
+  downloadUrl?: string;
+  uploadedAt: string;
+}
+
 export interface LeaveRequest {
   id: string;
   sessionId: string;
@@ -124,6 +137,7 @@ export interface LeaveRequest {
   studentNim: string;
   studentName: string;
   reason: string; // alasan ketidakhadiran dari praktikan
+  attachments?: LeaveAttachmentMeta[]; // dokumen pendukung (PDF, JPG, PNG)
   aiCategory: string; // hasil prediksi kategori alasan (informasi pendukung)
   aiConfidence: number | null;
   aiStatus: AIInferenceStatus;
@@ -156,6 +170,8 @@ export interface ApiResponse<T = unknown> {
 }
 
 export interface CreateSessionInput {
+  mainClass?: string;
+  groupCode?: string;
   courseName: string;
   courseCode: string;
   moduleCode: string;
@@ -203,7 +219,11 @@ export interface UseLeaveResult {
   pendingCount: number;
   loading: boolean;
   submitting: boolean;
-  submitLeaveRequest: (session: Session, reason: string) => Promise<ApiResponse<LeaveRequest>>;
+  submitLeaveRequest: (
+    session: Session,
+    reason: string,
+    attachments?: LeaveAttachmentMeta[]
+  ) => Promise<ApiResponse<LeaveRequest>>;
   reviewLeaveRequest: (
     leaveId: string,
     decision: 'APPROVED' | 'REJECTED',

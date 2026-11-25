@@ -13,8 +13,8 @@ const getToastMeta = (
   switch (type) {
     case 'success':
       return {
-        bg: colors.successSoft,
-        border: colors.success,
+        bg: colors.sageSoft,
+        border: colors.sage,
         fg: colors.successDark,
         icon: 'checkmark-circle',
       };
@@ -28,9 +28,9 @@ const getToastMeta = (
       };
     case 'warning':
       return {
-        bg: colors.warningSoft,
-        border: colors.warning,
-        fg: colors.warningDark,
+        bg: colors.butterCreamSoft,
+        border: colors.butterCream,
+        fg: colors.butterCreamDark,
         icon: 'warning',
       };
     case 'info':
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.md,
     ...theme.shadows.modal,
   },

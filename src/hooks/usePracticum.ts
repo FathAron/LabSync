@@ -93,37 +93,42 @@ export const usePracticum = (): UsePracticumResult => {
   useEffect(() => {
     // Jika belum login, kosongkan data
     if (!currentUser || !userId) {
-      setClasses([]);
-      setStudents([]);
-      setSessions([]);
-      setAttendanceList([]);
-      setStudentsLoaded(false);
-      setDataLoading(false);
+      queueMicrotask(() => {
+        setClasses([]);
+        setStudents([]);
+        setSessions([]);
+        setAttendanceList([]);
+        setStudentsLoaded(false);
+        setDataLoading(false);
+      });
 
       return undefined;
     }
 
     // Periksa konfigurasi Firebase
     if (!isFirebaseConfigured) {
-      setDataLoading(false);
-
-      reportError(
-        'firestore',
-        'Konfigurasi Firebase belum tersedia. Data praktikum belum dapat dimuat.'
-      );
+      queueMicrotask(() => {
+        setDataLoading(false);
+        reportError(
+          'firestore',
+          'Konfigurasi Firebase belum tersedia. Data praktikum belum dapat dimuat.'
+        );
+      });
 
       return undefined;
     }
 
-    setDataLoading(true);
-    setStudentsLoaded(false);
+    queueMicrotask(() => {
+      setDataLoading(true);
+      setStudentsLoaded(false);
+    });
 
     let completedSources = 0;
     let hasListenerError = false;
 
     const expectedSources = 4;
 
-    const unsubscribers: Array<() => void> = [];
+    const unsubscribers: (() => void)[] = [];
     const completed = new Set<string>();
 
     // Menandai listener yang sudah berhasil dimuat
@@ -215,8 +220,10 @@ export const usePracticum = (): UsePracticumResult => {
         setClasses
       );
     } else {
-      setClasses([]);
-      markSourceReady('classes');
+      queueMicrotask(() => {
+        setClasses([]);
+        markSourceReady('classes');
+      });
     }
 
     // ==========================================
@@ -239,17 +246,40 @@ export const usePracticum = (): UsePracticumResult => {
         'Gagal memuat jadwal praktikum',
         sessionsQuery,
         (snapshot) =>
-          snapshot.docs.map((item) =>
-            normalizePracticumSnapshot.normalizeSession(
-              item.data(),
-              item.id
+          snapshot.docs
+            .map((item) =>
+              normalizePracticumSnapshot.normalizeSession(
+                item.data(),
+                item.id
+              )
             )
-          ),
+            .sort((a, b) => {
+              const getTime = (s: typeof a) => {
+                if (s.lastActivityAt) {
+                  const t = new Date(s.lastActivityAt).getTime();
+                  if (!Number.isNaN(t)) return t;
+                }
+                if (s.createdAt) {
+                  const t = new Date(s.createdAt).getTime();
+                  if (!Number.isNaN(t)) return t;
+                }
+                if (s.date) {
+                  const t = new Date(s.date).getTime();
+                  if (!Number.isNaN(t)) return t;
+                }
+                return 0;
+              };
+              const diff = getTime(b) - getTime(a);
+              if (diff !== 0) return diff;
+              return (b.id || '').localeCompare(a.id || '');
+            }),
         setSessions
       );
     } else {
-      setSessions([]);
-      markSourceReady('sessions');
+      queueMicrotask(() => {
+        setSessions([]);
+        markSourceReady('sessions');
+      });
     }
 
     // ==========================================
@@ -284,8 +314,10 @@ export const usePracticum = (): UsePracticumResult => {
         }
       );
     } else {
-      setStudents([]);
-      markSourceReady('students');
+      queueMicrotask(() => {
+        setStudents([]);
+        markSourceReady('students');
+      });
     }
 
     // ==========================================

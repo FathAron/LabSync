@@ -15,6 +15,7 @@ import {
 
 import type {
   ApiResponse,
+  LeaveAttachmentMeta,
   LeaveRequest,
   Session,
   UseLeaveResult,
@@ -78,7 +79,7 @@ export const useLeave = (): UseLeaveResult => {
           loaded: true,
         }));
 
-        reportError('firestore', message);
+        reportError('firestore', message, 'leave');
       }
     );
 
@@ -108,7 +109,8 @@ export const useLeave = (): UseLeaveResult => {
   const submitLeaveRequest = useCallback(
     async (
       session: Session,
-      reason: string
+      reason: string,
+      attachments: LeaveAttachmentMeta[] = []
     ): Promise<ApiResponse<LeaveRequest>> => {
       if (!currentUser) {
         return {
@@ -148,7 +150,8 @@ export const useLeave = (): UseLeaveResult => {
           currentUser,
           session,
           reason,
-          aiResult
+          aiResult,
+          attachments
         );
 
         showToast(

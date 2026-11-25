@@ -1,8 +1,6 @@
-// TASK-04 - Kartu identitas praktikan aktif (dari state pusat, bukan input manual).
-
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing } from '../studentTokens';
+import { colors, radius, spacing, theme } from '../../../styles/theme';
 import type { StudentInfo } from '../types';
 
 const getInitials = (name: string): string => {
@@ -13,7 +11,7 @@ const getInitials = (name: string): string => {
   return (first + last).toUpperCase();
 };
 
-const StudentProfileCard = ({ student }: { student: StudentInfo }) => (
+export const StudentProfileCard = ({ student }: { student: StudentInfo }) => (
   <View style={styles.card}>
     <View style={styles.avatar}>
       <Text style={styles.avatarText}>{getInitials(student.name)}</Text>
@@ -22,7 +20,7 @@ const StudentProfileCard = ({ student }: { student: StudentInfo }) => (
       <Text style={styles.name}>{student.name}</Text>
       <Text style={styles.meta}>
         NIM {student.nim}
-        {student.className ? `  |  Kelas ${student.className}` : ''}
+        {student.className ? `  •  Kelas ${student.className}` : ''}
       </Text>
     </View>
   </View>
@@ -33,23 +31,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
+    borderColor: colors.borderLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    ...theme.shadows.card,
   },
   avatar: {
-    width: 48,
-    height: 48,
+    width: 42,
+    height: 42,
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
-  textWrap: { flex: 1, marginLeft: spacing.md },
-  name: { fontSize: 17, fontWeight: '700', color: colors.text, lineHeight: 23 },
-  meta: { marginTop: 2, fontSize: 13, color: colors.textMuted, lineHeight: 18 },
+  avatarText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  textWrap: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.mochaDark,
+    lineHeight: 20,
+  },
+  meta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
 });
 
 export default StudentProfileCard;

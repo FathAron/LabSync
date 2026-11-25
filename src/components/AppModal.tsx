@@ -1,5 +1,4 @@
 import React from 'react';
-
 import {
   Modal,
   Pressable,
@@ -9,15 +8,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-
 import { Ionicons } from '@expo/vector-icons';
-
-import {
-  colors,
-  radius,
-  spacing,
-  theme,
-} from '../styles/theme';
+import { colors, radius, spacing, theme } from '../styles/theme';
 
 type Presentation = 'responsive' | 'center' | 'bottom';
 
@@ -63,9 +55,7 @@ const AppModal = ({
         style={[
           styles.overlay,
           {
-            justifyContent: isBottomSheet
-              ? 'flex-end'
-              : 'center',
+            justifyContent: isBottomSheet ? 'flex-end' : 'center',
             paddingHorizontal: isBottomSheet ? 0 : spacing.lg,
             paddingVertical: isBottomSheet ? 0 : spacing.xl,
           },
@@ -83,7 +73,7 @@ const AppModal = ({
             styles.panel,
             {
               width: panelWidth,
-              maxHeight: height * 0.88,
+              maxHeight: height * 0.9,
             },
             isBottomSheet && styles.bottomSheet,
           ]}
@@ -99,9 +89,7 @@ const AppModal = ({
               <Text style={styles.title}>{title}</Text>
 
               {description ? (
-                <Text style={styles.description}>
-                  {description}
-                </Text>
+                <Text style={styles.description}>{description}</Text>
               ) : null}
             </View>
 
@@ -112,11 +100,7 @@ const AppModal = ({
               onPress={onClose}
               style={styles.closeButton}
             >
-              <Ionicons
-                name="close"
-                size={19}
-                color={colors.textMuted}
-              />
+              <Ionicons name="close" size={19} color={colors.textMuted} />
             </Pressable>
           </View>
 
@@ -129,9 +113,7 @@ const AppModal = ({
             {children}
           </ScrollView>
 
-          {footer ? (
-            <View style={styles.footer}>{footer}</View>
-          ) : null}
+          {footer ? <View style={styles.footer}>{footer}</View> : null}
         </View>
       </View>
     </Modal>
@@ -149,6 +131,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.xl,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
     ...theme.shadows.modal,
   },
   bottomSheet: {
@@ -173,27 +157,29 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
   },
   headerText: {
     flex: 1,
     minWidth: 0,
   },
   title: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 22,
+    color: colors.mochaDark,
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 23,
   },
   description: {
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
     marginTop: spacing.xs,
   },
   closeButton: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -207,7 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderLight,
   },
 });
 

@@ -1,62 +1,46 @@
-// Sprint 2 - Layout Praktikan
-// Integrasi tab Sesi Praktikum, Riwayat Presensi, dan Pengajuan Izin.
-
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import StudentProfileCard from '../../src/features/student/components/StudentProfileCard';
-
-import {
-  CONTENT_MAX_WIDTH,
-  colors,
-  spacing,
-} from '../../src/features/student/studentTokens';
-
+import { colors } from '../../src/styles/theme';
 import { useStudentModule } from '../../src/features/student/useStudentModule';
 import { useLeave } from '../../src/hooks/useLeave';
 
-const toColor = (value: unknown, fallback: string): string =>
-  typeof value === 'string' ? value : fallback;
-
 const StudentLayout = () => {
-  const {
-    student,
-    mySessions,
-    myRecords,
-    isAttended,
-  } = useStudentModule();
-
-  // Data izin praktikan secara real-time.
+  const insets = useSafeAreaInsets();
+  const { mySessions, myRecords, isAttended } = useStudentModule();
   const { pendingCount } = useLeave();
 
-  // Jumlah sesi aktif yang belum dihadiri.
+  // Jumlah sesi aktif yang belum dihadiri
   const todo = mySessions.filter(
-    (session) =>
-      session.status === 'ACTIVE' &&
-      !isAttended(session.id)
+    (session) => session.status === 'ACTIVE' && !isAttended(session.id)
   ).length;
 
   return (
     <View style={styles.root}>
-      {student ? (
-        <View style={styles.profileWrap}>
-          <StudentProfileCard student={student} />
-        </View>
-      ) : null}
-
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.primary,
+          tabBarActiveTintColor: colors.mocha,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarLabelStyle: {
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: '700',
+            marginTop: -2,
           },
           tabBarStyle: {
             backgroundColor: colors.surface,
-            borderTopColor: colors.border,
+            borderTopColor: colors.borderLight,
+            borderTopWidth: 1,
+            height: 58 + insets.bottom,
+            paddingBottom: insets.bottom > 0 ? insets.bottom - 4 : 8,
+            paddingTop: 8,
+            elevation: 8,
+            shadowColor: colors.mochaDark,
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
           },
           sceneStyle: {
             backgroundColor: colors.background,
@@ -69,11 +53,17 @@ const StudentLayout = () => {
           options={{
             title: 'Sesi Praktikum',
             tabBarBadge: todo > 0 ? todo : undefined,
-            tabBarIcon: ({ color, size }) => (
+            tabBarBadgeStyle: {
+              backgroundColor: colors.primary,
+              color: '#FFFFFF',
+              fontSize: 10,
+              fontWeight: '800',
+            },
+            tabBarIcon: ({ focused }) => (
               <Ionicons
-                name="calendar-outline"
-                size={size}
-                color={toColor(color, colors.primary)}
+                name={focused ? 'calendar' : 'calendar-outline'}
+                size={22}
+                color={focused ? colors.mochaDark : colors.textMuted}
               />
             ),
           }}
@@ -83,58 +73,67 @@ const StudentLayout = () => {
         <Tabs.Screen
           name="history"
           options={{
-            title: 'Riwayat Presensi',
-            tabBarBadge:
-              myRecords.length > 0
-                ? myRecords.length
-                : undefined,
+            title: 'Riwayat',
+            tabBarBadge: myRecords.length > 0 ? myRecords.length : undefined,
             tabBarBadgeStyle: {
-              backgroundColor: colors.success,
+              backgroundColor: colors.sageDark,
+              color: '#FFFFFF',
+              fontSize: 10,
+              fontWeight: '800',
             },
-            tabBarIcon: ({ color, size }) => (
+            tabBarIcon: ({ focused }) => (
               <Ionicons
-                name="time-outline"
-                size={size}
-                color={toColor(color, colors.primary)}
+                name={focused ? 'time' : 'time-outline'}
+                size={22}
+                color={focused ? colors.mochaDark : colors.textMuted}
               />
             ),
           }}
         />
 
-        {/* TAB 3: PENGAJUAN IZIN - ADELIA */}
+        {/* TAB 3: PENGAJUAN IZIN */}
         <Tabs.Screen
           name="leave"
           options={{
-            title: 'Pengajuan Izin',
-            tabBarBadge:
-              pendingCount > 0
-                ? pendingCount
-                : undefined,
+            title: 'Perizinan',
+            tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
             tabBarBadgeStyle: {
-              backgroundColor: colors.primary,
+              backgroundColor: colors.butterCreamDark,
+              color: '#FFFFFF',
+              fontSize: 10,
+              fontWeight: '800',
             },
-            tabBarIcon: ({ color, size }) => (
+            tabBarIcon: ({ focused }) => (
               <Ionicons
-                name="document-text-outline"
-                size={size}
-                color={toColor(color, colors.primary)}
+                name={focused ? 'document-text' : 'document-text-outline'}
+                size={22}
+                color={focused ? colors.mochaDark : colors.textMuted}
               />
             ),
           }}
         />
 
-        {/* TAB 4: PETA LABORATORIUM - ARON (SPRINT 3) */}
+        {/* TAB 4: PETA LABORATORIUM */}
         <Tabs.Screen
           name="maps"
           options={{
             title: 'Peta Lab',
-            tabBarIcon: ({ color, size }) => (
+            tabBarIcon: ({ focused }) => (
               <Ionicons
-                name="map-outline"
-                size={size}
-                color={toColor(color, colors.primary)}
+                name={focused ? 'map' : 'map-outline'}
+                size={22}
+                color={focused ? colors.mochaDark : colors.textMuted}
               />
             ),
+          }}
+        />
+
+        {/* Sembunyikan tab presensi langsung dari bottom bar (dibuka via sesi) */}
+        <Tabs.Screen
+          name="attendance"
+          options={{
+            href: null,
+            title: 'Presensi',
           }}
         />
       </Tabs>
@@ -146,15 +145,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-
-  profileWrap: {
-    width: '100%',
-    maxWidth: CONTENT_MAX_WIDTH,
-    alignSelf: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
   },
 });
 

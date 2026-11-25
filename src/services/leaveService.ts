@@ -16,6 +16,7 @@ import type {
   AIClassificationResult,
   ApiErrorCode,
   ApiResponse,
+  LeaveAttachmentMeta,
   LeaveRequest,
   Session,
   UserProfile,
@@ -141,7 +142,8 @@ export const createLeaveRequest = async (
   student: UserProfile,
   session: Session,
   reason: string,
-  aiResponse: ApiResponse<AIClassificationResult>
+  aiResponse: ApiResponse<AIClassificationResult>,
+  attachments: LeaveAttachmentMeta[] = []
 ): Promise<ApiResponse<LeaveRequest>> => {
   const trimmedReason = reason.trim();
 
@@ -226,6 +228,7 @@ export const createLeaveRequest = async (
       studentNim: student.nim,
       studentName: student.name,
       reason: trimmedReason,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
 
       aiCategory: aiResult.category,
       aiConfidence: aiResult.confidence,

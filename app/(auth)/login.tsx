@@ -57,7 +57,10 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top, spacing.xl), paddingBottom: spacing.xxl },
+          {
+            paddingTop: Math.max(insets.top + spacing.md, spacing.xl),
+            paddingBottom: Math.max(insets.bottom + 140, spacing.xxl * 3),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -65,21 +68,24 @@ export default function LoginScreen() {
           {/* Brand Header */}
           <View style={styles.brandHeader}>
             <View style={styles.logoBadge}>
-              <Ionicons name="flask" size={28} color="#FFFFFF" />
+              <Ionicons name="flask" size={26} color={colors.primaryText} />
             </View>
             <Text style={styles.brandTitle}>LabSync</Text>
             <Text style={styles.brandSubtitle}>
-              Masuk untuk mengakses jadwal, presensi, dan perizinan praktikum
+              Sistem Presensi & Perizinan Praktikum
             </Text>
           </View>
 
           {/* Login Card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Masuk ke Akun</Text>
+            <Text style={styles.cardSubtitle}>
+              Gunakan email institusi terdaftar untuk mengakses jadwal dan absensi praktikum.
+            </Text>
 
             {errorMsg ? (
               <View style={styles.errorBox} accessibilityLiveRegion="polite">
-                <Ionicons name="alert-circle" size={18} color={colors.dangerDark} />
+                <Ionicons name="alert-circle" size={17} color={colors.danger} />
                 <Text style={styles.errorText}>{errorMsg}</Text>
               </View>
             ) : null}
@@ -144,14 +150,14 @@ export default function LoginScreen() {
               ]}
             >
               {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.primaryText} />
               ) : (
-                <Text style={styles.primaryBtnText}>Masuk</Text>
+                <Text style={styles.primaryBtnText}>Masuk ke Akun</Text>
               )}
             </Pressable>
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Belum punya akun? </Text>
+              <Text style={styles.footerText}>Belum memiliki akun? </Text>
               <Link href="/(auth)/register" asChild>
                 <Pressable hitSlop={8}>
                   <Text style={styles.footerLink}>Daftar Sekarang</Text>
@@ -172,12 +178,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
   container: {
     width: '100%',
-    maxWidth: Math.min(CONTENT_MAX_WIDTH, 460),
+    maxWidth: Math.min(CONTENT_MAX_WIDTH, 440),
     alignSelf: 'center',
   },
   brandHeader: {
@@ -185,62 +190,71 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   logoBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.lg,
+    width: 52,
+    height: 52,
+    borderRadius: radius.xl,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
+    ...theme.shadows.card,
   },
   brandTitle: {
     fontSize: 26,
     fontWeight: '800',
     color: colors.text,
+    letterSpacing: -0.3,
   },
   brandSubtitle: {
-    marginTop: spacing.xs,
+    marginTop: 4,
     fontSize: 13,
     color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: 19,
+    fontWeight: '500',
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.lg,
+    padding: spacing.xl,
     ...theme.shadows.card,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: spacing.md,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 18,
+    marginTop: 3,
+    marginBottom: spacing.lg,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: radius.sm,
+    borderColor: '#F8CCD4',
+    borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.md,
+    gap: spacing.xs,
   },
   errorText: {
     flex: 1,
-    marginLeft: spacing.sm,
     fontSize: 12,
     fontWeight: '600',
-    color: colors.dangerDark,
+    color: colors.danger,
+    lineHeight: 17,
   },
   fieldGroup: {
     marginBottom: spacing.md,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 6,
@@ -248,10 +262,10 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     minHeight: 46,
   },
@@ -263,9 +277,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   primaryBtn: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
@@ -279,10 +293,10 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.primaryText,
   },
   footerRow: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -294,7 +308,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 13,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });
-

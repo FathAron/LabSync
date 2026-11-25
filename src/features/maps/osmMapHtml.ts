@@ -16,25 +16,32 @@ export const buildOsmMapHtml = (
       padding: 0;
       width: 100%;
       height: 100%;
-      background: #e5e7eb;
+      background: #F0E5D6;
     }
     .lab-pin {
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
-      border: 3px solid #ffffff;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      border: 3px solid #FFFDF9;
+      box-shadow: 0 3px 8px rgba(71, 67, 41, 0.35);
+      transition: transform 0.2s ease;
+    }
+    .lab-pin-selected {
+      transform: scale(1.25);
+      box-shadow: 0 4px 12px rgba(252, 117, 180, 0.45);
     }
     .user-pin {
       width: 16px;
       height: 16px;
       border-radius: 50%;
-      background: #16a34a;
-      border: 3px solid #ffffff;
-      box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.25);
+      background: #45734C;
+      border: 3px solid #FFFDF9;
+      box-shadow: 0 0 0 5px rgba(69, 115, 76, 0.25);
     }
     .leaflet-control-attribution {
-      font-size: 10px !important;
+      font-size: 9px !important;
+      background: rgba(255, 253, 249, 0.8) !important;
+      color: #7E7764 !important;
     }
   </style>
 </head>
@@ -44,7 +51,7 @@ export const buildOsmMapHtml = (
   <script>
     (function () {
       var map = L.map('map', {
-        zoomControl: true,
+        zoomControl: false,
         attributionControl: true
       }).setView([${initialLat}, ${initialLng}], 17);
 
@@ -71,19 +78,19 @@ export const buildOsmMapHtml = (
 
         labs.forEach(function (lab) {
           var isSelected = lab.id === selectedId;
-          var color = isSelected ? '#2563EB' : '#DC2626';
+          var color = isSelected ? '#FC75B4' : '#474329';
 
           L.circle([lab.latitude, lab.longitude], {
             radius: lab.radiusMeters || 50,
             color: color,
             weight: isSelected ? 2 : 1,
             fillColor: color,
-            fillOpacity: isSelected ? 0.18 : 0.08
+            fillOpacity: isSelected ? 0.22 : 0.08
           }).addTo(labLayer);
 
           var icon = L.divIcon({
             className: '',
-            html: '<div class="lab-pin" style="background:' + color + ';"></div>',
+            html: '<div class="lab-pin ' + (isSelected ? 'lab-pin-selected' : '') + '" style="background:' + color + ';"></div>',
             iconSize: [24, 24],
             iconAnchor: [12, 12]
           });
@@ -103,10 +110,10 @@ export const buildOsmMapHtml = (
           if (typeof u.accuracy === 'number' && u.accuracy > 0) {
             L.circle([u.latitude, u.longitude], {
               radius: Math.min(u.accuracy, 200),
-              color: '#16A34A',
+              color: '#45734C',
               weight: 1,
-              fillColor: '#16A34A',
-              fillOpacity: 0.1
+              fillColor: '#45734C',
+              fillOpacity: 0.12
             }).addTo(userLayer);
           }
 

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
-
 import { colors, radius, spacing } from '../styles/theme';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -24,8 +23,8 @@ const EmptyState = ({
       <View style={styles.iconContainer}>
         <Ionicons
           name={icon}
-          size={25}
-          color={colors.textMuted}
+          size={26}
+          color={colors.mocha}
         />
       </View>
 
@@ -47,32 +46,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.xxl,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceSubtle,
+    width: 52,
+    height: 52,
+    borderRadius: radius.pill,
+    backgroundColor: colors.sand,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
   title: {
-    color: colors.text,
-    fontSize: 14,
+    color: colors.mochaDark,
+    fontSize: 15,
     fontWeight: '700',
-    lineHeight: 20,
+    lineHeight: 21,
     textAlign: 'center',
   },
   message: {
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
-    maxWidth: 340,
+    maxWidth: 320,
     marginTop: spacing.xs,
   },
   action: {

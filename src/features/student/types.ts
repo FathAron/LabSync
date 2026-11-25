@@ -21,6 +21,8 @@ export interface SessionInfo {
   moduleCode: string;
   moduleTitle: string;
   className: string;
+  mainClass?: string;
+  groupCode?: string;
   date: unknown;
   startTime: unknown;
   endTime: unknown;

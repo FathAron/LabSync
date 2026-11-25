@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -24,14 +25,9 @@ import type {
 } from 'react-native-webview';
 
 import EmptyState from '../../../components/EmptyState';
-
 import { useApp } from '../../../context/AppContext';
 import { useLaboratories } from '../../../hooks/useLaboratories';
-
-import {
-  db,
-  isFirebaseConfigured,
-} from '../../../services/firebaseConfig';
+import { db, isFirebaseConfigured } from '../../../services/firebaseConfig';
 import {
   calculateDistanceMeters,
   watchUserLocation,
@@ -43,25 +39,19 @@ import {
   openDeviceSettings,
 } from '../../../services/permissionService';
 import { normalizePracticumSnapshot } from '../../../services/practicumService';
-
 import {
   CONTENT_MAX_WIDTH,
   colors,
   radius,
   spacing,
+  theme,
 } from '../../../styles/theme';
-
 import {
   STATUS_META,
   formatDateID,
   formatTimeRange,
 } from '../../student/studentUtils';
-
-import type {
-  Laboratory,
-  Session,
-} from '../../../types/models';
-
+import type { Laboratory, Session } from '../../../types/models';
 import {
   formatDistanceMeters,
   getLaboratoryActivitySummary,
@@ -100,35 +90,30 @@ const DEFAULT_COORDS = {
   longitude: 107.630432,
 };
 
+type LabFilterMode = 'all' | 'active' | 'available';
+
 const LaboratoryMapsView = ({ active = true }: Props) => {
   const { currentUser, reportError } = useApp();
-  const { laboratories, loading: labsLoading } =
-    useLaboratories();
+  const { laboratories, loading: labsLoading } = useLaboratories();
 
   const webViewRef = useRef<WebViewType | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [sessionsLoading, setSessionsLoading] =
-    useState(true);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
 
-  const [selectedLabId, setSelectedLabId] = useState<
-    string | null
-  >(null);
+  const [selectedLabId, setSelectedLabId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMode, setFilterMode] = useState<LabFilterMode>('all');
 
-  const [userCoords, setUserCoords] =
-    useState<Coordinates | null>(null);
-  const [locationError, setLocationError] = useState<
-    string | null
-  >(null);
-  const [canOpenSettings, setCanOpenSettings] =
-    useState(false);
-  const [locationLoading, setLocationLoading] =
-    useState(false);
+  const [userCoords, setUserCoords] = useState<Coordinates | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [canOpenSettings, setCanOpenSettings] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
 
   // ==========================================
-  // REAL-TIME SESSIONS FOR LAB ACTIVITY (SRS-05)
+  // REAL-TIME SESSIONS FOR LAB ACTIVITY
   // ==========================================
 
   useEffect(() => {
@@ -140,10 +125,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
       collection(db, 'sessions'),
       (snapshot) => {
         const items = snapshot.docs.map((item) =>
-          normalizePracticumSnapshot.normalizeSession(
-            item.data(),
-            item.id
-          )
+          normalizePracticumSnapshot.normalizeSession(item.data(), item.id)
         );
         setSessions(items);
         setSessionsLoading(false);
@@ -152,8 +134,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
         setSessionsLoading(false);
         reportError(
           'firestore',
-          error.message ||
-            'Gagal memuat jadwal aktivitas laboratorium.'
+          error.message || 'Gagal memuat jadwal aktivitas laboratorium.'
         );
       }
     );
@@ -162,7 +143,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
   }, [currentUser, reportError]);
 
   // ==========================================
-  // USER LOCATION WATCHER (SRS-04)
+  // USER LOCATION WATCHER
   // ==========================================
 
   useEffect(() => {
@@ -191,9 +172,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
             if (cancelled) return;
             const perm = await checkLocationPermission();
             if (cancelled) return;
-            setCanOpenSettings(
-              Boolean(perm.shouldOpenSettings)
-            );
+            setCanOpenSettings(Boolean(perm.shouldOpenSettings));
             setLocationError(message);
             setLocationLoading(false);
           }
@@ -210,9 +189,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
         const perm = await checkLocationPermission();
         if (cancelled) return;
 
-        setCanOpenSettings(
-          Boolean(perm.shouldOpenSettings)
-        );
+        setCanOpenSettings(Boolean(perm.shouldOpenSettings));
         setLocationError(getLocationErrorMessage(error));
         setLocationLoading(false);
       }
@@ -227,25 +204,50 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
   }, [active, retryToken]);
 
   // ==========================================
-  // SELECTED LABORATORY & ACTIVITY SUMMARY
+  // FILTERED LABORATORIES
   // ==========================================
 
+  const filteredLaboratories = useMemo(() => {
+    let list = laboratories;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (lab) =>
+          lab.name.toLowerCase().includes(q) ||
+          (lab.description && lab.description.toLowerCase().includes(q))
+      );
+    }
+
+    if (filterMode === 'active') {
+      list = list.filter((lab) => {
+        const summary = getLaboratoryActivitySummary(lab, sessions);
+        return summary.ongoingSession !== null;
+      });
+    } else if (filterMode === 'available') {
+      list = list.filter((lab) => {
+        const summary = getLaboratoryActivitySummary(lab, sessions);
+        return summary.ongoingSession === null;
+      });
+    }
+
+    return list;
+  }, [laboratories, searchQuery, filterMode, sessions]);
+
+  // Selected Laboratory
   const selectedLab: Laboratory | null = useMemo(() => {
     if (laboratories.length === 0) return null;
 
     return (
-      laboratories.find(
-        (lab) => lab.id === selectedLabId
-      ) ?? laboratories[0]
+      laboratories.find((lab) => lab.id === selectedLabId) ??
+      filteredLaboratories[0] ??
+      laboratories[0]
     );
-  }, [laboratories, selectedLabId]);
+  }, [laboratories, selectedLabId, filteredLaboratories]);
 
   const activitySummary = useMemo(() => {
     if (!selectedLab) return null;
-    return getLaboratoryActivitySummary(
-      selectedLab,
-      sessions
-    );
+    return getLaboratoryActivitySummary(selectedLab, sessions);
   }, [selectedLab, sessions]);
 
   const distanceToSelectedLab = useMemo(() => {
@@ -264,20 +266,15 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
         longitude: laboratories[0].longitude,
       };
     }
-
     return DEFAULT_COORDS;
   }, [laboratories]);
 
   const mapHtml = useMemo(
-    () =>
-      buildOsmMapHtml(
-        initialCenter.latitude,
-        initialCenter.longitude
-      ),
+    () => buildOsmMapHtml(initialCenter.latitude, initialCenter.longitude),
     [initialCenter.latitude, initialCenter.longitude]
   );
 
-  // Sinkronkan marker lab & posisi pengguna ke Leaflet WebView
+  // Sync state to Leaflet map in WebView
   useEffect(() => {
     if (!mapReady || !webViewRef.current) return;
 
@@ -313,28 +310,30 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
       setRetryToken((prev) => prev + 1);
       return;
     }
-
     focusPoint(userCoords.latitude, userCoords.longitude);
   };
 
-  const handleWebViewMessage = (
-    event: WebViewMessageEvent
-  ) => {
+  const handleWebViewMessage = (event: WebViewMessageEvent) => {
     try {
-      const payload = JSON.parse(
-        event.nativeEvent.data
-      ) as { type?: string; labId?: string };
+      const payload = JSON.parse(event.nativeEvent.data) as {
+        type?: string;
+        labId?: string;
+      };
 
-      if (
-        payload.type === 'SELECT_LAB' &&
-        typeof payload.labId === 'string'
-      ) {
+      if (payload.type === 'SELECT_LAB' && typeof payload.labId === 'string') {
         setSelectedLabId(payload.labId);
       }
     } catch {
-      // Abaikan pesan yang tidak dikenal.
+      // Ignore
     }
   };
+
+  const activeLabsCount = useMemo(() => {
+    return laboratories.filter((lab) => {
+      const summary = getLaboratoryActivitySummary(lab, sessions);
+      return summary.ongoingSession !== null;
+    }).length;
+  }, [laboratories, sessions]);
 
   // ==========================================
   // LOADING / EMPTY STATES
@@ -343,10 +342,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
   if (labsLoading && laboratories.length === 0) {
     return (
       <View style={styles.loadingRoot}>
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-        />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>
           Memuat peta dan data laboratorium...
         </Text>
@@ -359,8 +355,8 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
       <View style={styles.emptyWrap}>
         <EmptyState
           icon="map-outline"
-          title="Belum Ada Data Laboratorium"
-          message="Asisten belum menambahkan lokasi laboratorium. Data laboratorium akan tampil di peta setelah ditambahkan."
+          title="Belum Ada Titik Laboratorium"
+          message="Lokasi laboratorium belum ditambahkan oleh asisten. Peta akan menampilkan posisi lab setelah didaftarkan."
         />
       </View>
     );
@@ -375,21 +371,15 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
       return (
         <View style={styles.activityBox}>
           <Text style={styles.activityLabel}>{title}</Text>
-          <Text style={styles.activityEmpty}>
-            {emptyText}
-          </Text>
+          <Text style={styles.activityEmpty}>{emptyText}</Text>
         </View>
       );
     }
 
     const meta = STATUS_META[session.status];
-    const dateLabel =
-      formatDateID(session.date) ?? session.date;
+    const dateLabel = formatDateID(session.date) ?? session.date;
     const timeLabel =
-      formatTimeRange(
-        session.startTime,
-        session.endTime
-      ) ?? session.time;
+      formatTimeRange(session.startTime, session.endTime) ?? session.time;
 
     return (
       <View style={styles.activityBox}>
@@ -397,23 +387,12 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
           <Text style={styles.activityLabel}>{title}</Text>
 
           <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: meta.bg },
-            ]}
+            style={[styles.statusBadge, { backgroundColor: meta.bg }]}
           >
             <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: meta.dot },
-              ]}
+              style={[styles.statusDot, { backgroundColor: meta.dot }]}
             />
-            <Text
-              style={[
-                styles.statusText,
-                { color: meta.fg },
-              ]}
-            >
+            <Text style={[styles.statusText, { color: meta.fg }]}>
               {meta.label}
             </Text>
           </View>
@@ -424,8 +403,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
         </Text>
 
         <Text style={styles.sessionMeta}>
-          Kelas {session.className} • {dateLabel} •{' '}
-          {timeLabel}
+          Kelas {session.className} • {dateLabel} • {timeLabel}
         </Text>
       </View>
     );
@@ -434,15 +412,30 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
   return (
     <View style={styles.root}>
       <View style={styles.container}>
-        {/* LOCATION STATUS BANNER */}
+        {/* Top Header Information Bar */}
+        <View style={styles.topInfoBar}>
+          <View>
+            <Text style={styles.topInfoTitle}>Peta Interaktif Lab</Text>
+            <Text style={styles.topInfoSubtitle}>
+              {laboratories.length} Ruang Lab Terdaftar • {activeLabsCount} Aktif
+            </Text>
+          </View>
+
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>GPS Aktif</Text>
+          </View>
+        </View>
+
+        {/* Location Error Warning Banner */}
         {locationError ? (
           <View style={styles.warningBanner}>
             <Ionicons
               name="warning-outline"
-              size={17}
-              color={colors.warningDark}
+              size={16}
+              color={colors.butterCreamDark}
             />
-            <Text style={styles.warningText}>
+            <Text style={styles.warningText} numberOfLines={2}>
               {locationError}
             </Text>
             <View style={styles.warningActions}>
@@ -454,35 +447,81 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
                   }}
                   style={styles.retryBtn}
                 >
-                  <Text style={styles.retryBtnText}>
-                    Pengaturan
-                  </Text>
+                  <Text style={styles.retryBtnText}>Pengaturan</Text>
                 </Pressable>
               ) : null}
 
               <Pressable
                 accessibilityRole="button"
-                onPress={() =>
-                  setRetryToken((prev) => prev + 1)
-                }
+                onPress={() => setRetryToken((prev) => prev + 1)}
                 style={styles.retryBtn}
               >
-                <Text style={styles.retryBtnText}>
-                  Coba Lagi
-                </Text>
+                <Text style={styles.retryBtnText}>Coba Lagi</Text>
               </Pressable>
             </View>
           </View>
         ) : null}
 
-        {/* LAB CHIPS */}
+        {/* Search Bar & Quick Filters */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchInputWrap}>
+            <Ionicons name="search-outline" size={17} color={colors.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Cari ruang lab atau gedung..."
+              placeholderTextColor={colors.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery ? (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Quick Filter Mode Chips */}
+        <View style={styles.filterModesRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setFilterMode('all')}
+            style={[styles.filterModeChip, filterMode === 'all' && styles.filterModeChipActive]}
+          >
+            <Text style={[styles.filterModeText, filterMode === 'all' && styles.filterModeTextActive]}>
+              Semua ({laboratories.length})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setFilterMode('active')}
+            style={[styles.filterModeChip, filterMode === 'active' && styles.filterModeChipActive]}
+          >
+            <Text style={[styles.filterModeText, filterMode === 'active' && styles.filterModeTextActive]}>
+              Ada Sesi ({activeLabsCount})
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setFilterMode('available')}
+            style={[styles.filterModeChip, filterMode === 'available' && styles.filterModeChipActive]}
+          >
+            <Text style={[styles.filterModeText, filterMode === 'available' && styles.filterModeTextActive]}>
+              Lab Kosong
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Lab Chips Horizontal List */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsRow}
           style={styles.chipsScroll}
         >
-          {laboratories.map((lab) => {
+          {filteredLaboratories.map((lab) => {
             const isSelected = selectedLab?.id === lab.id;
 
             return (
@@ -490,25 +529,15 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
                 key={lab.id}
                 accessibilityRole="button"
                 onPress={() => handleSelectLab(lab)}
-                style={[
-                  styles.chip,
-                  isSelected && styles.chipActive,
-                ]}
+                style={[styles.chip, isSelected && styles.chipActive]}
               >
                 <Ionicons
                   name="location-outline"
                   size={14}
-                  color={
-                    isSelected
-                      ? '#FFFFFF'
-                      : colors.primaryDark
-                  }
+                  color={isSelected ? colors.sand : colors.mocha}
                 />
                 <Text
-                  style={[
-                    styles.chipText,
-                    isSelected && styles.chipTextActive,
-                  ]}
+                  style={[styles.chipText, isSelected && styles.chipTextActive]}
                 >
                   {lab.name}
                 </Text>
@@ -517,24 +546,19 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
           })}
         </ScrollView>
 
-        {/* OSM MAP VIEW */}
+        {/* Interactive Map View */}
         <View style={styles.mapCard}>
           {!NativeWebView ? (
             <View style={styles.webFallback}>
-              <Ionicons
-                name="map-outline"
-                size={36}
-                color={colors.primary}
-              />
+              <Ionicons name="map-outline" size={36} color={colors.mocha} />
               <Text style={styles.webFallbackTitle}>
                 {Platform.OS === 'web'
-                  ? 'Peta Interaktif Tersedia di Android / iOS'
-                  : 'Modul WebView Belum Tersedia di Build Ini'}
+                  ? 'Peta Interaktif Terbuka di Android / iOS'
+                  : 'Modul WebView Belum Tersedia'}
               </Text>
               <Text style={styles.webFallbackDesc}>
-                {Platform.OS === 'web'
-                  ? 'Pilih laboratorium di atas untuk melihat detail koordinat, radius, dan aktivitas praktikum.'
-                  : 'Rebuild development build agar peta OpenStreetMap dapat tampil. Daftar lab dan aktivitas tetap tersedia di bawah.'}
+                Pilih laboratorium pada daftar untuk melihat detail koordinat,
+                radius, dan aktivitas praktikum di bawah.
               </Text>
             </View>
           ) : (
@@ -552,27 +576,21 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
 
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Fokus ke lokasi saya"
                 onPress={handleFocusUser}
                 style={styles.myLocationFab}
               >
                 {locationLoading ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primary}
-                  />
+                  <ActivityIndicator size="small" color={colors.mocha} />
                 ) : (
-                  <Ionicons
-                    name="locate"
-                    size={20}
-                    color={colors.primary}
-                  />
+                  <Ionicons name="locate" size={20} color={colors.mocha} />
                 )}
               </Pressable>
             </>
           )}
         </View>
 
-        {/* SELECTED LABORATORY DETAIL & ACTIVITY (SRS-05) */}
+        {/* Selected Laboratory Detail & Activity Bottom Sheet */}
         {activitySummary ? (
           <ScrollView
             style={styles.detailScroll}
@@ -585,13 +603,9 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
                   <Text style={styles.detailTitle}>
                     {activitySummary.laboratory.name}
                   </Text>
-
                   {activitySummary.laboratory.description ? (
                     <Text style={styles.detailDesc}>
-                      {
-                        activitySummary.laboratory
-                          .description
-                      }
+                      {activitySummary.laboratory.description}
                     </Text>
                   ) : null}
                 </View>
@@ -599,37 +613,24 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
                 <View style={styles.radiusPill}>
                   <Ionicons
                     name="radio-outline"
-                    size={13}
-                    color={colors.primaryDark}
+                    size={12}
+                    color={colors.sageDark}
                   />
                   <Text style={styles.radiusPillText}>
-                    Radius{' '}
-                    {
-                      activitySummary.laboratory
-                        .radiusMeters
-                    }{' '}
-                    m
+                    Radius {activitySummary.laboratory.radiusMeters} m
                   </Text>
                 </View>
               </View>
 
               <View style={styles.coordsRow}>
                 <Text style={styles.coordsText}>
-                  {activitySummary.laboratory.latitude.toFixed(
-                    5
-                  )}
-                  ,{' '}
-                  {activitySummary.laboratory.longitude.toFixed(
-                    5
-                  )}
+                  {activitySummary.laboratory.latitude.toFixed(5)},{' '}
+                  {activitySummary.laboratory.longitude.toFixed(5)}
                 </Text>
 
                 {distanceToSelectedLab !== null ? (
                   <Text style={styles.distanceText}>
-                    Jarak Anda:{' '}
-                    {formatDistanceMeters(
-                      distanceToSelectedLab
-                    )}
+                    Jarak Anda: {formatDistanceMeters(distanceToSelectedLab)}
                   </Text>
                 ) : (
                   <Text style={styles.distanceMuted}>
@@ -640,10 +641,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
 
               {sessionsLoading ? (
                 <View style={styles.sessionsLoading}>
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primary}
-                  />
+                  <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={styles.sessionsLoadingText}>
                     Memuat aktivitas praktikum...
                   </Text>
@@ -653,7 +651,7 @@ const LaboratoryMapsView = ({ active = true }: Props) => {
                   {renderSessionRow(
                     'Sedang Berlangsung',
                     activitySummary.ongoingSession,
-                    'Tidak ada praktikum yang sedang berlangsung saat ini.'
+                    'Tidak ada praktikum yang sedang berlangsung di lab ini.'
                   )}
 
                   {renderSessionRow(
@@ -690,11 +688,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
+    backgroundColor: colors.background,
   },
   loadingText: {
     marginTop: spacing.sm,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
     color: colors.textMuted,
   },
   emptyWrap: {
@@ -702,23 +700,58 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.lg,
   },
+  topInfoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs + 2,
+  },
+  topInfoTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.mochaDark,
+  },
+  topInfoSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.sageSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.success,
+  },
+  liveText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.successDark,
+  },
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.warningLight,
+    backgroundColor: colors.butterCreamSoft,
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: colors.butterCream,
     borderRadius: radius.md,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: spacing.xs + 2,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs + 2,
   },
   warningText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.warningDark,
+    fontSize: 11,
+    color: colors.butterCreamDark,
   },
   warningActions: {
     flexDirection: 'row',
@@ -727,19 +760,64 @@ const styles = StyleSheet.create({
   retryBtn: {
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: colors.butterCream,
   },
   retryBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.butterCreamDark,
+  },
+  searchRow: {
+    marginBottom: spacing.xs + 2,
+  },
+  searchInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: 40,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    fontSize: 13,
+    color: colors.mochaDark,
+    paddingVertical: 8,
+  },
+  filterModesRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginBottom: spacing.xs + 2,
+  },
+  filterModeChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterModeChipActive: {
+    backgroundColor: colors.mocha,
+    borderColor: colors.mocha,
+  },
+  filterModeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.warningDark,
+    color: colors.textSecondary,
+  },
+  filterModeTextActive: {
+    color: '#FFFFFF',
   },
   chipsScroll: {
     flexGrow: 0,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs + 2,
   },
   chipsRow: {
     gap: spacing.xs,
@@ -757,26 +835,27 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.mocha,
+    borderColor: colors.mochaDark,
   },
   chipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.mochaDark,
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: colors.sand,
   },
   mapCard: {
-    height: 260,
+    height: 240,
     width: '100%',
-    borderRadius: radius.md,
+    borderRadius: radius.xl,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.sand,
     marginBottom: spacing.sm,
+    ...theme.shadows.card,
   },
   map: {
     width: '100%',
@@ -786,19 +865,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.sm,
     bottom: spacing.sm,
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     borderRadius: radius.full,
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    elevation: 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    ...theme.shadows.card,
   },
   webFallback: {
     flex: 1,
@@ -807,107 +882,109 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   webFallbackTitle: {
-    marginTop: spacing.sm,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.mochaDark,
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
   webFallbackDesc: {
-    marginTop: spacing.xs,
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginTop: 4,
+    lineHeight: 18,
+    maxWidth: 320,
   },
   detailScroll: {
     flex: 1,
   },
   detailContent: {
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xl,
   },
   detailCard: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
+    ...theme.shadows.card,
   },
   detailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: spacing.sm,
   },
   detailTitleWrap: {
     flex: 1,
+    marginRight: spacing.sm,
   },
   detailTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: colors.mochaDark,
   },
   detailDesc: {
-    marginTop: 2,
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
+    marginTop: 2,
   },
   radiusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
+    backgroundColor: colors.sageSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
   },
   radiusPillText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.sageDark,
   },
   coordsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    marginTop: spacing.sm,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
   },
   coordsText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
     color: colors.textMuted,
   },
   distanceText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.successDark,
+    color: colors.sageDark,
   },
   distanceMuted: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textMuted,
   },
   sessionsLoading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
     paddingVertical: spacing.md,
   },
   sessionsLoadingText: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textMuted,
   },
   activitiesWrap: {
+    marginTop: spacing.md,
     gap: spacing.sm,
-    marginTop: spacing.sm,
   },
   activityBox: {
     backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.md,
-    padding: spacing.sm + 2,
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
   },
   activityHeader: {
     flexDirection: 'row',
@@ -918,42 +995,42 @@ const styles = StyleSheet.create({
   activityLabel: {
     fontSize: 11,
     fontWeight: '800',
+    color: colors.mochaDark,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
+  },
+  activityEmpty: {
+    fontSize: 12,
     color: colors.textMuted,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.xs + 2,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: radius.full,
+    borderRadius: radius.pill,
   },
   statusDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: radius.pill,
+    marginRight: 4,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
   },
   courseTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.mochaDark,
   },
   sessionMeta: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
     color: colors.textSecondary,
-  },
-  activityEmpty: {
-    marginTop: 4,
-    fontSize: 12,
-    color: colors.textMuted,
+    marginTop: 2,
   },
 });
 
