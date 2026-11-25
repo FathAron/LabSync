@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 
 import { formatTimeWIB } from '../features/student/studentUtils';
+import { validateSessionScheduleRealtime } from '../utils/dateUtils';
 
 import type {
   ApiErrorCode,
@@ -262,6 +263,10 @@ const normalizeSession = (
     notes: asString(raw.notes),
     createdAt: asString(raw.createdAt),
     updatedAt: asString(raw.updatedAt),
+    lastActivityAt:
+      typeof raw.lastActivityAt === 'string'
+        ? raw.lastActivityAt
+        : null,
   };
 };
 
@@ -299,7 +304,7 @@ const timeRange = (
 const validateSessionInput = (
   input: CreateSessionInput
 ): string | null => {
-  const requiredFields: Array<[string, string]> = [
+  const requiredFields: [string, string][] = [
     ['Nama praktikum', input.courseName],
     ['Kode praktikum', input.courseCode],
     ['Kode modul', input.moduleCode],
@@ -334,6 +339,17 @@ const validateSessionInput = (
 
   if (input.endTime <= input.startTime) {
     return 'Jam selesai harus lebih besar dari jam mulai.';
+  }
+
+  // Validasi real-time: tanggal dan jam tidak boleh sudah berlalu
+  const scheduleValidation = validateSessionScheduleRealtime(
+    input.date.trim(),
+    input.startTime.trim(),
+    input.endTime.trim()
+  );
+
+  if (!scheduleValidation.valid) {
+    return scheduleValidation.error || 'Jadwal sesi praktikum tidak valid.';
   }
 
   if (
@@ -821,41 +837,63 @@ export const createSession = async (
       return makeError(validation, 'VALIDATION_ERROR');
     }
 
+    const resolvedGroupCode = input.groupCode?.trim().toUpperCase() || '';
+    const resolvedMainClass = input.mainClass?.trim() || '';
+    const resolvedClassName = (resolvedGroupCode || input.className).trim().toUpperCase();
+
     const classSnap = await getDocs(
       query(
         collection(db, 'classes'),
         where(
           'name',
           '==',
-          input.className.trim().toUpperCase()
+          resolvedClassName
         )
       )
     );
 
-    if (classSnap.empty) {
-      return makeError(
-        'Kelas belum terdaftar. Buat kelas terlebih dahulu sebelum menambahkan sesi.',
-        'NOT_FOUND'
-      );
-    }
+    let classId = '';
+    let totalStudents = Number(input.totalStudents) || 0;
 
-    const classData = normalizeClass(
-      classSnap.docs[0].data() as Record<string, unknown>,
-      classSnap.docs[0].id
-    );
+    if (!classSnap.empty) {
+      const classData = normalizeClass(
+        classSnap.docs[0].data() as Record<string, unknown>,
+        classSnap.docs[0].id
+      );
+      if (classData) {
+        classId = classData.id;
+        totalStudents = classData.totalStudents || totalStudents;
+      }
+    } else {
+      // Auto-register class/group in classes collection so it is an active entity
+      const newClassRef = await addDoc(collection(db, 'classes'), {
+        name: resolvedClassName,
+        mainClass: resolvedMainClass,
+        courseCode: input.courseCode.trim().toUpperCase(),
+        courseName: input.courseName.trim(),
+        assistantId: assistant.uid,
+        studentIds: [],
+        totalStudents,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      });
+      classId = newClassRef.id;
+    }
 
     const createdAt = nowIso();
     const laboratoryId = input.laboratoryId?.trim() ?? '';
 
     const payload: Omit<Session, 'id'> = {
-      ...(classData ? { classId: classData.id } : {}),
+      ...(classId ? { classId } : {}),
       ...(laboratoryId ? { laboratoryId } : {}),
+      ...(resolvedMainClass ? { mainClass: resolvedMainClass } : {}),
+      ...(resolvedGroupCode ? { groupCode: resolvedGroupCode } : {}),
       courseName: input.courseName.trim(),
       courseCode: input.courseCode.trim().toUpperCase(),
       moduleCode: input.moduleCode.trim(),
       moduleTitle: input.moduleTitle.trim(),
-      className: input.className.trim().toUpperCase(),
-      class: input.className.trim().toUpperCase(),
+      className: resolvedClassName,
+      class: resolvedClassName,
       day: input.day.trim(),
       date: input.date.trim(),
       startTime: input.startTime.trim(),
@@ -867,13 +905,14 @@ export const createSession = async (
       room: input.room.trim(),
       assistantId: assistant.uid,
       assistantName: assistant.name,
-      totalStudents: classData.totalStudents,
+      totalStudents,
       status: 'PENDING',
       openedAt: null,
       closedAt: null,
       notes: input.notes?.trim() ?? '',
       createdAt,
       updatedAt: createdAt,
+      lastActivityAt: createdAt,
     };
 
     const ref = await addDoc(
@@ -967,8 +1006,11 @@ export const updateSession = async (
     }
 
     const nextClassName =
-      patch.className?.trim().toUpperCase() ??
+      (patch.groupCode || patch.className)?.trim().toUpperCase() ??
       current.className;
+
+    let classId = current.classId || '';
+    let totalStudents = current.totalStudents || 0;
 
     const classSnap = await getDocs(
       query(
@@ -977,22 +1019,36 @@ export const updateSession = async (
       )
     );
 
-    if (classSnap.empty) {
-      return makeError(
-        'Kelas tujuan belum terdaftar. Buat kelas terlebih dahulu.',
-        'NOT_FOUND'
+    if (!classSnap.empty) {
+      const linkedClass = normalizeClass(
+        classSnap.docs[0].data() as Record<string, unknown>,
+        classSnap.docs[0].id
       );
+      if (linkedClass) {
+        classId = linkedClass.id;
+        totalStudents = linkedClass.totalStudents;
+      }
+    } else {
+      const newClassRef = await addDoc(collection(db, 'classes'), {
+        name: nextClassName,
+        mainClass: patch.mainClass || current.mainClass || '',
+        courseCode: patch.courseCode || current.courseCode,
+        courseName: patch.courseName || current.courseName,
+        assistantId: currentUser?.uid || '',
+        studentIds: [],
+        totalStudents,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      });
+      classId = newClassRef.id;
     }
-
-    const linkedClass = normalizeClass(
-      classSnap.docs[0].data() as Record<string, unknown>,
-      classSnap.docs[0].id
-    );
 
     values.className = nextClassName;
     values.class = nextClassName;
-    values.classId = linkedClass.id;
-    values.totalStudents = linkedClass.totalStudents;
+    if (classId) values.classId = classId;
+    values.totalStudents = totalStudents;
+    if (patch.mainClass !== undefined) values.mainClass = patch.mainClass.trim();
+    if (patch.groupCode !== undefined) values.groupCode = patch.groupCode.trim().toUpperCase();
 
     if (patch.day !== undefined) {
       values.day = patch.day.trim();
@@ -1135,6 +1191,7 @@ export const openSession = async (
         openedAt,
         closedAt: null,
         updatedAt: timestamp,
+        lastActivityAt: timestamp,
       });
     });
 
@@ -1182,6 +1239,7 @@ export const closeSession = async (
         status: 'CLOSED',
         closedAt,
         updatedAt: timestamp,
+        lastActivityAt: timestamp,
       });
     });
 

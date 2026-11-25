@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAllowedAssistant() {
+      return signedIn() && (
+        request.auth.token.email == 'adelia.clearesta.1705@gmail.com' ||
+        request.auth.token.email == 'aronsorimudajp@gmail.com' ||
+        request.auth.token.email == 'wipinsmg@gmail.com' ||
+        request.auth.token.email == 'naufaldwi1710@gmail.com' ||
+        request.auth.token.email == 'naufaldwiy1710@gmail.com'
+      );
+    }
+
+    // ==========================================
+    // DOKUMEN PENDUKUNG PENGAJUAN IZIN
+    // Akses terlindungi: hanya pemilik file dan asisten yang berwenang
+    // Maksimal ukuran 10 MB per berkas (PDF, JPG, PNG)
+    // ==========================================
+    match /leaveAttachments/{userId}/{fileName} {
+      allow read: if isOwner(userId) || isAllowedAssistant();
+
+      allow create: if isOwner(userId)
+        && request.resource.size <= 10 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('application/pdf') ||
+          request.resource.contentType.matches('image/(jpeg|png|jpg|webp)')
+        );
+
+      allow update, delete: if isOwner(userId);
+    }
+
+    // Default deny untuk path lainnya
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

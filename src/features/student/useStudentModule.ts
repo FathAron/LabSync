@@ -7,7 +7,6 @@ import { usePracticum } from '../../hooks/usePracticum';
 import type {
   HistoryEntry,
   Id,
-  SessionInfo,
   SubmitResult,
 } from './types';
 
@@ -64,23 +63,26 @@ export const useStudentModule = () => {
   );
 
   // ==========================================
-  // FILTER SESSIONS BY STUDENT CLASS
+  // FILTER SESSIONS BY STUDENT CLASS / GROUP
   // ==========================================
 
   const mySessions = useMemo(() => {
     if (!student) return [];
 
-    const filtered =
-      student.className === ''
-        ? allSessions
-        : allSessions.filter(
-            (session) =>
-              session.className === '' ||
-              sameText(
-                session.className,
-                student.className
-              )
-          );
+    const studentClass = student.className.trim().toLowerCase();
+    if (!studentClass) return sortSessions(allSessions);
+
+    const filtered = allSessions.filter((session) => {
+      const sessClass = session.className.trim().toLowerCase();
+      const sessGroup = (session.groupCode || '').trim().toLowerCase();
+      if (!sessClass && !sessGroup) return true;
+      return (
+        sessClass === studentClass ||
+        sessGroup === studentClass ||
+        (sessGroup && studentClass.includes(sessGroup)) ||
+        (sessClass && studentClass.includes(sessClass))
+      );
+    });
 
     return sortSessions(filtered);
   }, [allSessions, student]);

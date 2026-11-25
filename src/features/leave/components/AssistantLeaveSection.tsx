@@ -7,48 +7,25 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useLeave } from '../../../hooks/useLeave';
-
 import type {
   ApiResponse,
   LeaveRequest,
 } from '../../../types/models';
-
-import {
-  colors,
-  radius,
-  spacing,
-} from '../../student/studentTokens';
-
+import { colors, radius, spacing, theme } from '../../../styles/theme';
+import StatusBadge from '../../../components/StatusBadge';
+import EmptyState from '../../../components/EmptyState';
 import LeaveReviewModal from './LeaveReviewModal';
-
-const STATUS_CONFIG = {
-  PENDING: {
-    label: 'Menunggu',
-    background: '#FFF7ED',
-    color: '#C2410C',
-  },
-  APPROVED: {
-    label: 'Disetujui',
-    background: '#DCFCE7',
-    color: '#15803D',
-  },
-  REJECTED: {
-    label: 'Ditolak',
-    background: '#FEE2E2',
-    color: '#B91C1C',
-  },
-};
 
 const formatDate = (value: string): string => {
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleString('id-ID', {
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -69,8 +46,7 @@ const AssistantLeaveSection = () => {
 
   const sortedRequests = [...leaveRequests].sort(
     (a, b) =>
-      new Date(b.createdAt).getTime() -
-      new Date(a.createdAt).getTime()
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   const handleReview = async (
@@ -96,153 +72,113 @@ const AssistantLeaveSection = () => {
   return (
     <View style={styles.container}>
       <View style={styles.heading}>
-        <View>
+        <View style={styles.headingText}>
           <Text style={styles.title}>Pengajuan Izin Praktikan</Text>
           <Text style={styles.subtitle}>
-            Periksa dan kelola pengajuan izin praktikum.
+            Tinjau dan verifikasi surat perizinan praktikum dengan bantuan klasifikasi AI.
           </Text>
         </View>
 
         <View style={styles.countBadge}>
-          <Text style={styles.countText}>
-            {pendingCount}
-          </Text>
+          <Text style={styles.countText}>{pendingCount} Menunggu</Text>
         </View>
       </View>
 
-      <Text style={styles.pendingLabel}>
-        {pendingCount} pengajuan menunggu pemeriksaan
-      </Text>
-
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
-          <Text style={styles.emptyText}>
-            Memuat pengajuan izin...
-          </Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.emptyText}>Memuat pengajuan izin...</Text>
         </View>
       ) : sortedRequests.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📋</Text>
-          <Text style={styles.emptyTitle}>
-            Belum Ada Pengajuan Izin
-          </Text>
-          <Text style={styles.emptyText}>
-            Pengajuan izin praktikan akan muncul di sini.
-          </Text>
-        </View>
+        <EmptyState
+          icon="document-text-outline"
+          title="Belum Ada Pengajuan Izin"
+          message="Pengajuan izin dari praktikan akan muncul di sini untuk ditinjau oleh asisten."
+        />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
         >
           {sortedRequests.map((request) => {
-            const status = STATUS_CONFIG[request.status];
+            const isPending = request.status === 'PENDING';
 
             return (
-              <View
-                key={request.id}
-                style={styles.card}
-              >
+              <View key={request.id} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={styles.studentInfo}>
-                    <Text style={styles.studentName}>
-                      {request.studentName}
-                    </Text>
-                    <Text style={styles.detail}>
-                      {request.studentNim} · {request.className}
+                    <Text style={styles.studentName}>{request.studentName}</Text>
+                    <Text style={styles.studentMeta}>
+                      NIM {request.studentNim} · Kelas {request.className}
                     </Text>
                   </View>
 
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: status.background },
+                  <StatusBadge status={request.status} />
+                </View>
+
+                <View style={styles.sessionBox}>
+                  <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
+                  <Text style={styles.sessionTitle} numberOfLines={1}>
+                    {request.sessionTitle}
+                  </Text>
+                </View>
+
+                <Text style={styles.reasonLabel}>Alasan Pengajuan:</Text>
+                <Text style={styles.reasonText} numberOfLines={3}>
+                  &ldquo;{request.reason}&rdquo;
+                </Text>
+
+                {/* AI PREDICTION TAG */}
+                <View style={styles.aiTag}>
+                  <Ionicons name="sparkles" size={13} color={colors.primaryDark} />
+                  <Text style={styles.aiTagText}>
+                    Prediksi AI: <Text style={styles.aiTagBold}>{request.aiCategory}</Text>
+                    {request.aiConfidence !== null
+                      ? ` (${Math.round(request.aiConfidence * 100)}% keyakinan)`
+                      : ''}
+                  </Text>
+                </View>
+
+                {request.reviewNotes ? (
+                  <View style={styles.reviewNotesBox}>
+                    <Text style={styles.reviewNotesLabel}>Catatan Asisten:</Text>
+                    <Text style={styles.reviewNotesText}>{request.reviewNotes}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.cardFooter}>
+                  <Text style={styles.dateText}>
+                    Diajukan: {formatDate(request.createdAt)}
+                  </Text>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setSelectedRequest(request)}
+                    style={({ pressed }) => [
+                      styles.actionBtn,
+                      isPending ? styles.actionBtnPending : styles.actionBtnReviewed,
+                      pressed && { opacity: 0.8 },
                     ]}
                   >
                     <Text
                       style={[
-                        styles.statusText,
-                        { color: status.color },
+                        styles.actionBtnText,
+                        isPending
+                          ? styles.actionBtnTextPending
+                          : styles.actionBtnTextReviewed,
                       ]}
                     >
-                      {status.label}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.sessionTitle}>
-                  {request.sessionTitle}
-                </Text>
-
-                <Text style={styles.reasonLabel}>
-                  Alasan Izin
-                </Text>
-                <Text
-                  style={styles.reason}
-                  numberOfLines={3}
-                >
-                  {request.reason}
-                </Text>
-
-                <View style={styles.aiInfo}>
-                  <Text style={styles.aiLabel}>
-                    ✨ Prediksi AI
-                  </Text>
-
-                  <Text style={styles.aiCategory}>
-                    {request.aiCategory}
-                  </Text>
-
-                  {request.aiConfidence !== null ? (
-                    <Text style={styles.detail}>
-                      Keyakinan:{' '}
-                      {(request.aiConfidence * 100).toFixed(1)}%
-                    </Text>
-                  ) : null}
-
-                  {request.aiStatus !== 'SUCCESS' ? (
-                    <Text style={styles.aiWarning}>
-                      Layanan AI tidak tersedia atau gagal.
-                    </Text>
-                  ) : null}
-
-                  <Text style={styles.aiDisclaimer}>
-                    Hanya sebagai informasi pendukung.
-                  </Text>
-                </View>
-
-                <Text style={styles.dateText}>
-                  Diajukan: {formatDate(request.createdAt)}
-                </Text>
-
-                {request.status === 'PENDING' ? (
-                  <Pressable
-                    style={styles.reviewButton}
-                    onPress={() => setSelectedRequest(request)}
-                  >
-                    <Text style={styles.reviewButtonText}>
-                      Periksa Pengajuan
+                      {isPending ? 'Periksa Izin' : 'Lihat Detail'}
                     </Text>
                   </Pressable>
-                ) : (
-                  <View style={styles.reviewedInfo}>
-                    <Text style={styles.detail}>
-                      Diperiksa oleh: {request.reviewedByName ?? '-'}
-                    </Text>
-                    {request.reviewNotes ? (
-                      <Text style={styles.detail}>
-                        Catatan: {request.reviewNotes}
-                      </Text>
-                    ) : null}
-                  </View>
-                )}
+                </View>
               </View>
             );
           })}
         </ScrollView>
       )}
 
+      {/* REVIEW MODAL */}
       <LeaveReviewModal
         visible={selectedRequest !== null}
         request={selectedRequest}
@@ -257,59 +193,60 @@ const AssistantLeaveSection = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: spacing.md,
+    padding: spacing.lg,
   },
   heading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  headingText: {
+    flex: 1,
   },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: colors.text,
   },
   subtitle: {
     fontSize: 12,
     color: colors.textMuted,
-    marginTop: 4,
+    lineHeight: 17,
+    marginTop: 2,
   },
   countBadge: {
-    minWidth: 34,
-    height: 34,
+    backgroundColor: colors.warningSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: radius.pill,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: '#F5DEB3',
   },
   countText: {
-    color: '#C2410C',
-    fontWeight: '800',
-  },
-  pendingLabel: {
     fontSize: 12,
-    color: colors.textMuted,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    fontWeight: '800',
+    color: colors.text,
   },
   list: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.md,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    ...theme.shadows.card,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   studentInfo: {
     flex: 1,
@@ -317,113 +254,125 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: colors.text,
   },
-  detail: {
-    fontSize: 11,
+  studentMeta: {
+    fontSize: 12,
     color: colors.textMuted,
-    marginTop: 4,
+    marginTop: 2,
   },
-  statusBadge: {
+  sessionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surfaceMuted,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '800',
+    paddingVertical: 5,
+    borderRadius: radius.md,
+    marginVertical: spacing.xs,
   },
   sessionTitle: {
-    fontSize: 13,
+    flex: 1,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.primary,
-    marginTop: spacing.md,
+    color: colors.textSecondary,
   },
   reasonLabel: {
     fontSize: 11,
-    fontWeight: '800',
-    color: colors.primaryDark,
-    marginTop: spacing.md,
-  },
-  reason: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontWeight: '700',
     color: colors.textMuted,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
-  aiInfo: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  aiLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primaryDark,
-  },
-  aiCategory: {
+  reasonText: {
     fontSize: 13,
-    fontWeight: '800',
-    color: colors.primary,
-    marginTop: 5,
+    lineHeight: 19,
+    color: colors.text,
+    fontStyle: 'italic',
+    marginTop: 2,
   },
-  aiWarning: {
-    fontSize: 11,
-    color: '#B45309',
-    marginTop: 5,
-  },
-  aiDisclaimer: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 5,
-  },
-  dateText: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: spacing.md,
-  },
-  reviewButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    padding: spacing.md,
+  aiTag: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.md,
+    gap: 5,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
   },
-  reviewButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  aiTagText: {
+    fontSize: 11,
+    color: colors.primaryDark,
+  },
+  aiTagBold: {
     fontWeight: '800',
   },
-  reviewedInfo: {
+  reviewNotesBox: {
+    backgroundColor: colors.surfaceMuted,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.borderDark,
+    marginTop: spacing.sm,
+  },
+  reviewNotesLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textMuted,
+  },
+  reviewNotesText: {
+    fontSize: 12,
+    color: colors.text,
+    marginTop: 2,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     marginTop: spacing.md,
-    paddingTop: spacing.sm,
+  },
+  dateText: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  actionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnPending: {
+    backgroundColor: colors.primary,
+  },
+  actionBtnReviewed: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  actionBtnTextPending: {
+    color: colors.primaryText,
+  },
+  actionBtnTextReviewed: {
+    color: colors.text,
   },
   center: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
   },
-  emptyIcon: {
-    fontSize: 36,
-    marginBottom: spacing.md,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.primaryDark,
-  },
   emptyText: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
-    textAlign: 'center',
     marginTop: spacing.sm,
   },
 });

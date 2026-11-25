@@ -28,6 +28,8 @@ import {
   disablePushTokenForCurrentUser,
 } from '../services/notificationService';
 import type { ApiResponse, UserProfile, UserRole } from '../types/models';
+import { formatContextualError, type OperationContext } from '../utils/contextualError';
+
 export type ToastTone = FeedbackType | 'warning' | 'danger';
 export interface FeedbackToastState {
   key: number;
@@ -41,6 +43,7 @@ export interface RecordAttendanceResult {
   message: string;
   record?: MockAttendanceRecord;
 }
+
 export interface AppContextValue {
   currentUser: UserProfile | null;
   currentRole: UserRole | null;
@@ -53,7 +56,11 @@ export interface AppContextValue {
   showToast: (message: string, type?: ToastTone, withHistoryLink?: boolean) => void;
   hideToast: () => void;
   notify: (feedback: { type: FeedbackType; message: string; withHistoryLink?: boolean }) => void;
-  reportError: (source: 'auth' | 'firestore' | 'ai', message: string) => void;
+  reportError: (
+    source: 'auth' | 'firestore' | 'ai',
+    message: string,
+    context?: OperationContext
+  ) => void;
   login: (email: string, password: string) => Promise<ApiResponse<UserProfile>>;
   register: (payload: RegisterPayload) => Promise<ApiResponse<UserProfile>>;
   logout: () => Promise<ApiResponse<void>>;
@@ -115,18 +122,25 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     [showToast]
   );
   const reportError = useCallback(
-    (source: 'auth' | 'firestore' | 'ai', message: string) => {
-      const cleanMessage = message.trim() || 'Terjadi gangguan pada layanan.';
+    (
+      source: 'auth' | 'firestore' | 'ai',
+      message: string,
+      context?: OperationContext
+    ) => {
+      const formatted = formatContextualError(message, context);
+      console.warn(`[AppContext] Error (${source}):`, formatted.technicalDetails);
+
       if (source === 'firestore') {
-        setSyncError(cleanMessage);
-        showToast(cleanMessage, 'error');
+        // Tampilkan banner kontekstual di bagian atas (Header),
+        // hindari duplikasi toast error yang sama di bagian bawah.
+        setSyncError(formatted.message);
         return;
       }
       if (source === 'ai') {
-        showToast(cleanMessage, 'warning');
+        showToast(formatted.message, 'warning');
         return;
       }
-      showToast(cleanMessage, 'error');
+      showToast(formatted.message, 'error');
     },
     [showToast]
   );
@@ -135,8 +149,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       setCurrentUser(user);
       setAuthLoading(false);
       if (errorMessage) {
-        setSyncError(errorMessage);
-        showToast(errorMessage, 'error');
+        const formatted = formatContextualError(errorMessage, 'profile');
+        setSyncError(formatted.message);
       } else {
         setSyncError(null);
       }
@@ -147,7 +161,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         clearTimeout(toastTimerRef.current);
       }
     };
-  }, [showToast]);
+  }, []);
   // Registrasi token setelah login dan sinkronisasi ulang ketika aplikasi aktif kembali.
   // Pada foreground refresh, izin hanya diperiksa; dialog izin tidak dimunculkan berulang.
   useEffect(() => {

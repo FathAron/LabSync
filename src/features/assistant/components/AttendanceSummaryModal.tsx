@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-
 import {
   Modal,
   Pressable,
@@ -9,21 +8,10 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-
 import { Ionicons } from '@expo/vector-icons';
 
-import type {
-  Session,
-  AttendanceRecord,
-} from '../../../data/mockData';
-
-import {
-  colors,
-  radius,
-  spacing,
-  theme,
-} from '../../../styles/theme';
-
+import type { Session, AttendanceRecord } from '../../../types/models';
+import { colors, radius, spacing, theme } from '../../../styles/theme';
 import { formatTimeWIB } from '../../student/studentUtils';
 
 interface AttendanceSummaryModalProps {
@@ -46,10 +34,9 @@ const AttendanceSummaryModal = ({
     () =>
       [...records].sort(
         (a, b) =>
-          new Date(a.timestamp).getTime() -
-          new Date(b.timestamp).getTime(),
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       ),
-    [records],
+    [records]
   );
 
   if (!session) return null;
@@ -57,12 +44,7 @@ const AttendanceSummaryModal = ({
   const capacity = Math.max(0, session.totalStudents);
   const presentCount = records.length;
   const percentage =
-    capacity > 0
-      ? Math.min(
-          100,
-          Math.round((presentCount / capacity) * 100),
-        )
-      : 0;
+    capacity > 0 ? Math.min(100, Math.round((presentCount / capacity) * 100)) : 0;
 
   return (
     <Modal
@@ -91,10 +73,8 @@ const AttendanceSummaryModal = ({
           style={[
             styles.panel,
             {
-              width: isCompact
-                ? width
-                : Math.min(width - 32, 620),
-              maxHeight: height * 0.85,
+              width: isCompact ? width : Math.min(width - 32, 620),
+              maxHeight: height * 0.88,
             },
             isCompact && styles.bottomSheet,
           ]}
@@ -107,14 +87,8 @@ const AttendanceSummaryModal = ({
 
           <View style={styles.header}>
             <View style={styles.headerText}>
-              <Text style={styles.eyebrow}>
-                REKAP KEHADIRAN
-              </Text>
-
-              <Text style={styles.title}>
-                Rekap Presensi Sesi
-              </Text>
-
+              <Text style={styles.eyebrow}>REKAP KEHADIRAN</Text>
+              <Text style={styles.title}>Rekap Presensi Sesi</Text>
               <Text style={styles.subtitle}>
                 {session.courseName} · Kelas {session.className}
               </Text>
@@ -127,11 +101,7 @@ const AttendanceSummaryModal = ({
               hitSlop={8}
               style={styles.closeButton}
             >
-              <Ionicons
-                name="close"
-                size={20}
-                color={colors.neutralDark}
-              />
+              <Ionicons name="close" size={20} color={colors.text} />
             </Pressable>
           </View>
 
@@ -140,123 +110,86 @@ const AttendanceSummaryModal = ({
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* METRICS */}
             <View style={styles.metrics}>
               <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>
-                  Mahasiswa hadir
-                </Text>
-
+                <Text style={styles.metricLabel}>Mahasiswa Hadir</Text>
                 <Text style={styles.metricValue}>
                   {presentCount}
-                  <Text style={styles.metricTotal}>
-                    {' '}/ {capacity}
-                  </Text>
+                  <Text style={styles.metricTotal}> / {capacity}</Text>
                 </Text>
               </View>
 
               <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>
-                  Persentase hadir
-                </Text>
-
-                <Text style={styles.metricValue}>
-                  {percentage}%
-                </Text>
+                <Text style={styles.metricLabel}>Persentase Hadir</Text>
+                <Text style={styles.metricValue}>{percentage}%</Text>
               </View>
             </View>
 
+            {/* PROGRESS SECTION */}
             <View style={styles.progressSection}>
               <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>
-                  Tingkat kehadiran
-                </Text>
-
-                <Text style={styles.progressValue}>
-                  {percentage}%
-                </Text>
+                <Text style={styles.progressLabel}>Tingkat Kehadiran</Text>
+                <Text style={styles.progressValue}>{percentage}%</Text>
               </View>
 
               <View style={styles.progressTrack}>
                 <View
                   style={[
                     styles.progressFill,
-                    { width: `${percentage}%` },
+                    {
+                      width: `${percentage}%`,
+                      backgroundColor: percentage >= 75 ? colors.success : colors.primary,
+                    },
                   ]}
                 />
               </View>
             </View>
 
+            {/* ATTENDEE LIST HEADER */}
             <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>
-                Daftar praktikan hadir
-              </Text>
-
-              <Text style={styles.listCount}>
-                {presentCount} catatan
-              </Text>
+              <Text style={styles.listTitle}>Daftar Praktikan Hadir</Text>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{presentCount} Mahasiswa</Text>
+              </View>
             </View>
 
             {sortedRecords.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons
-                  name="people-outline"
-                  size={30}
-                  color={colors.textMuted}
-                />
-
-                <Text style={styles.emptyTitle}>
-                  Belum ada praktikan yang presensi
-                </Text>
-
+                <View style={styles.emptyIconWrap}>
+                  <Ionicons name="people-outline" size={26} color={colors.textMuted} />
+                </View>
+                <Text style={styles.emptyTitle}>Belum ada presensi tercatat</Text>
                 <Text style={styles.emptyDescription}>
-                  Catatan kehadiran akan muncul di sini setelah
-                  praktikan berhasil melakukan presensi.
+                  Catatan presensi akan otomatis muncul di sini setelah praktikan berhasil memvalidasi kehadiran.
                 </Text>
               </View>
             ) : (
               sortedRecords.map((record, index) => {
                 const time =
-                  formatTimeWIB(record.timestamp) ??
-                  record.attendedAt ??
-                  '—';
+                  formatTimeWIB(record.timestamp) ?? record.attendedAt ?? '—';
 
                 return (
-                  <View
-                    key={record.id}
-                    style={styles.attendeeRow}
-                  >
+                  <View key={record.id} style={styles.attendeeRow}>
                     <View style={styles.indexBadge}>
-                      <Text style={styles.indexText}>
-                        {index + 1}
-                      </Text>
+                      <Text style={styles.indexText}>{index + 1}</Text>
                     </View>
 
                     <View style={styles.attendeeInfo}>
-                      <Text style={styles.attendeeName}>
-                        {record.studentName}
-                      </Text>
-
-                      <Text style={styles.attendeeNim}>
-                        NIM {record.studentNim}
-                      </Text>
+                      <Text style={styles.attendeeName}>{record.studentName}</Text>
+                      <Text style={styles.attendeeNim}>NIM: {record.studentNim}</Text>
 
                       {record.notes ? (
-                        <Text style={styles.attendeeNotes}>
-                          Catatan meja: {record.notes}
-                        </Text>
+                        <View style={styles.notesRow}>
+                          <Ionicons name="desktop-outline" size={13} color={colors.textMuted} />
+                          <Text style={styles.attendeeNotes}>{record.notes}</Text>
+                        </View>
                       ) : null}
                     </View>
 
                     <View style={styles.attendanceTime}>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={15}
-                        color={colors.success}
-                      />
-
-                      <Text style={styles.timeText}>
-                        {time}
-                      </Text>
+                      <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                      <Text style={styles.timeText}>{time}</Text>
                     </View>
                   </View>
                 );
@@ -268,11 +201,9 @@ const AttendanceSummaryModal = ({
             <Pressable
               accessibilityRole="button"
               onPress={onClose}
-              style={styles.closeAction}
+              style={styles.closeFooterBtn}
             >
-              <Text style={styles.closeActionText}>
-                Tutup Rekap
-              </Text>
+              <Text style={styles.closeFooterText}>Tutup Rekap</Text>
             </Pressable>
           </View>
         </View>
@@ -288,12 +219,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
   },
   panel: {
-    maxWidth: 620,
-    flexShrink: 1,
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingTop: spacing.lg,
     ...theme.shadows.modal,
+    overflow: 'hidden',
   },
   bottomSheet: {
     borderBottomLeftRadius: 0,
@@ -301,239 +233,251 @@ const styles = StyleSheet.create({
   },
   handleContainer: {
     alignItems: 'center',
-    paddingTop: spacing.sm,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
   },
   handle: {
-    width: 36,
+    width: 40,
     height: 4,
-    borderRadius: radius.full,
-    backgroundColor: colors.border,
+    borderRadius: radius.pill,
+    backgroundColor: colors.borderDark,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   headerText: {
     flex: 1,
-    minWidth: 0,
+    paddingRight: spacing.md,
   },
   eyebrow: {
-    color: colors.primary,
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1,
+    color: colors.primaryDark,
+    letterSpacing: 0.8,
   },
   title: {
-    color: colors.text,
     fontSize: 18,
-    lineHeight: 25,
     fontWeight: '800',
-    marginTop: spacing.xs,
+    color: colors.text,
+    marginTop: 2,
   },
   subtitle: {
+    fontSize: 13,
     color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: spacing.xs,
+    marginTop: 2,
+    fontWeight: '500',
   },
   closeButton: {
     width: 32,
     height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.neutralSoft,
   },
   scroll: {
-    flexShrink: 1,
+    flexGrow: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
   metrics: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   metricCard: {
     flex: 1,
-    flexBasis: 140,
-    minWidth: 0,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
   },
   metricLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    color: colors.textMuted,
   },
   metricValue: {
-    color: colors.text,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
-    marginTop: spacing.sm,
+    color: colors.text,
+    marginTop: 4,
   },
   metricTotal: {
-    color: colors.textMuted,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+    color: colors.textMuted,
   },
   progressSection: {
-    marginTop: spacing.lg,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.lg,
   },
   progressHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   progressLabel: {
-    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '600',
+    color: colors.textMuted,
   },
   progressValue: {
-    color: colors.text,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: colors.text,
   },
   progressTrack: {
     height: 7,
+    backgroundColor: colors.border,
     borderRadius: radius.pill,
     overflow: 'hidden',
-    backgroundColor: colors.neutralSoft,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.success,
     borderRadius: radius.pill,
   },
   listHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-    marginBottom: spacing.sm,
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   listTitle: {
-    color: colors.text,
     fontSize: 14,
     fontWeight: '800',
+    color: colors.text,
   },
-  listCount: {
-    color: colors.textMuted,
+  badge: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  badgeText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: colors.primaryDark,
   },
   emptyState: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    borderRadius: radius.md,
+  },
+  emptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
   emptyTitle: {
-    color: colors.text,
     fontSize: 14,
     fontWeight: '700',
-    textAlign: 'center',
-    marginTop: spacing.md,
+    color: colors.text,
   },
   emptyDescription: {
-    color: colors.textMuted,
     fontSize: 12,
     lineHeight: 18,
+    color: colors.textMuted,
     textAlign: 'center',
-    maxWidth: 330,
-    marginTop: spacing.xs,
+    marginTop: 4,
+    maxWidth: 280,
   },
   attendeeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: spacing.sm,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    gap: spacing.md,
   },
   indexBadge: {
-    width: 30,
-    height: 30,
+    width: 28,
+    height: 28,
     borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   indexText: {
-    color: colors.primaryDark,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: colors.textMuted,
   },
   attendeeInfo: {
     flex: 1,
-    flexBasis: 150,
     minWidth: 0,
   },
   attendeeName: {
-    color: colors.text,
     fontSize: 13,
     fontWeight: '700',
+    color: colors.text,
   },
   attendeeNim: {
-    color: colors.textMuted,
     fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  notesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginTop: 3,
   },
   attendeeNotes: {
-    color: colors.primaryDark,
     fontSize: 11,
-    marginTop: 3,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   attendanceTime: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginLeft: 'auto',
+    gap: 4,
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
   },
   timeText: {
-    color: colors.successDark,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+    color: colors.success,
   },
   footer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    padding: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  closeAction: {
-    width: '100%',
+  closeFooterBtn: {
     minHeight: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
   },
-  closeActionText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+  closeFooterText: {
+    fontSize: 14,
     fontWeight: '700',
-    textAlign: 'center',
+    color: colors.text,
   },
 });
 

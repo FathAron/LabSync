@@ -1,6 +1,4 @@
-// TASK-04 - Modal (bottom sheet) formulir presensi.
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,7 +13,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '../studentTokens';
+import { colors, radius, spacing, theme } from '../../../styles/theme';
 import type { SessionInfo, StudentInfo, SubmitResult } from '../types';
 import { MESSAGES, formatDateID, formatTimeRange } from '../studentUtils';
 
@@ -36,21 +34,20 @@ interface Props {
   onSubmit: (notes: string) => Promise<SubmitResult>;
 }
 
-const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props) => {
+const AttendanceModal = ({
+  visible,
+  session,
+  student,
+  onClose,
+  onSubmit,
+}: Props) => {
   const { height } = useWindowDimensions();
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const savingRef = useRef(false);
 
-  useEffect(() => {
-    if (visible) {
-      setNotes('');
-      setError('');
-    }
-  }, [visible]);
-
-  if (!session || !student) return null;
+  if (!visible || !session || !student) return null;
 
   const scheduleText =
     [
@@ -58,12 +55,15 @@ const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props
       formatTimeRange(session.startTime, session.endTime),
     ]
       .filter(Boolean)
-      .join(' - ') || 'Jadwal belum tersedia';
+      .join(' • ') || 'Jadwal belum tersedia';
 
-  const moduleText = [session.moduleCode, session.moduleTitle].filter(Boolean).join(' - ');
+  const moduleText =
+    [session.moduleCode, session.moduleTitle].filter(Boolean).join(' — ');
 
   const handleCancel = () => {
-    if (savingRef.current) return; 
+    if (savingRef.current) return;
+    setNotes('');
+    setError('');
     onClose();
   };
 
@@ -75,7 +75,9 @@ const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props
     try {
       const result = await onSubmit(notes.trim());
       if (result.ok || result.closeModal) {
-        onClose(); 
+        setNotes('');
+        setError('');
+        onClose();
       } else {
         setError(result.message || MESSAGES.genericError);
       }
@@ -88,10 +90,15 @@ const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCancel}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={handleCancel}
+    >
       <KeyboardAvoidingView
         style={styles.root}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -109,10 +116,23 @@ const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.title} accessibilityRole="header">
-              Formulir Presensi
-            </Text>
-            <Text style={styles.subtitle}>Periksa data berikut, lalu simpan presensimu.</Text>
+            <View style={styles.headerRow}>
+              <View>
+                <Text style={styles.title} accessibilityRole="header">
+                  Konfirmasi Presensi
+                </Text>
+                <Text style={styles.subtitle}>
+                  Pastikan data sesi di bawah sudah sesuai
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleCancel}
+                hitSlop={8}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color={colors.mochaDark} />
+              </Pressable>
+            </View>
 
             <Text style={styles.sectionLabel}>Data Praktikan</Text>
             <View style={styles.infoCard}>
@@ -121,20 +141,23 @@ const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props
               <InfoRow label="Kelas" value={student.className} />
             </View>
 
-            <Text style={styles.sectionLabel}>Data Sesi</Text>
+            <Text style={styles.sectionLabel}>Data Sesi Praktikum</Text>
             <View style={styles.infoCard}>
-              <InfoRow label="Praktikum" value={session.courseName} />
+              <InfoRow label="Mata Kuliah" value={session.courseName} />
               <InfoRow label="Modul" value={moduleText} />
               <InfoRow label="Jadwal" value={scheduleText} />
               <InfoRow label="Ruangan" value={session.room} />
+              <InfoRow label="Asisten" value={session.assistantName} />
             </View>
 
-            <Text style={styles.sectionLabel}>Posisi / Nomor Meja (opsional)</Text>
+            <Text style={styles.sectionLabel}>
+              Posisi / Catatan Meja (Opsional)
+            </Text>
             <TextInput
               value={notes}
               onChangeText={setNotes}
               editable={!saving}
-              placeholder="Contoh: Meja Lab A-12"
+              placeholder="Contoh: Meja Lab C-08 (maks. 30 karakter)"
               placeholderTextColor={colors.textMuted}
               maxLength={NOTES_MAX_LENGTH}
               returnKeyType="done"
@@ -142,11 +165,17 @@ const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props
               style={styles.input}
               accessibilityLabel="Posisi atau nomor meja laboratorium"
             />
-            <Text style={styles.hint}>Boleh dikosongkan.</Text>
+            <Text style={styles.hint}>
+              Boleh dikosongkan bila tidak diperlukan.
+            </Text>
 
             {error ? (
               <View style={styles.errorBox} accessibilityLiveRegion="polite">
-                <Ionicons name="alert-circle-outline" size={18} color={colors.dangerDark} />
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={18}
+                  color={colors.dangerDark}
+                />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
@@ -174,7 +203,9 @@ const AttendanceModal = ({ visible, session, student, onClose, onSubmit }: Props
               {saving ? (
                 <View style={styles.savingRow}>
                   <ActivityIndicator color="#FFFFFF" size="small" />
-                  <Text style={[styles.btnPrimaryText, styles.savingText]}>Menyimpan...</Text>
+                  <Text style={[styles.btnPrimaryText, styles.savingText]}>
+                    Menyimpan...
+                  </Text>
                 </View>
               ) : (
                 <Text style={styles.btnPrimaryText}>Simpan Presensi</Text>
@@ -194,13 +225,16 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 560,
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...theme.shadows.modal,
   },
   handle: {
     alignSelf: 'center',
-    width: 40,
+    width: 38,
     height: 4,
     borderRadius: radius.pill,
     backgroundColor: colors.border,
@@ -208,34 +242,61 @@ const styles = StyleSheet.create({
   },
   scroll: { flexGrow: 0, flexShrink: 1 },
   scrollContent: { padding: spacing.lg },
-  title: { fontSize: 20, fontWeight: '800', color: colors.text },
-  subtitle: { marginTop: 4, fontSize: 14, color: colors.textMuted },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: { fontSize: 18, fontWeight: '800', color: colors.mochaDark },
+  subtitle: { marginTop: 2, fontSize: 13, color: colors.textSecondary },
   sectionLabel: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-    fontSize: 13,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.neutralDark,
+    color: colors.mochaDark,
   },
   infoCard: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.md,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    gap: 4,
   },
-  infoRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
-  infoLabel: { flex: 2, fontSize: 13, color: colors.textMuted, paddingRight: spacing.sm },
-  infoValue: { flex: 5, fontSize: 14, fontWeight: '600', color: colors.text, lineHeight: 20 },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  infoLabel: {
+    flex: 2,
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
+  infoValue: {
+    flex: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.mochaDark,
+  },
   input: {
-    minHeight: 48,
+    minHeight: 46,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    fontSize: 15,
-    color: colors.text,
-    backgroundColor: colors.surface,
+    fontSize: 13,
+    color: colors.mochaDark,
+    backgroundColor: colors.surfaceSubtle,
   },
-  hint: { marginTop: 4, fontSize: 12, color: colors.textMuted },
+  hint: { marginTop: 4, fontSize: 11, color: colors.textMuted },
   errorBox: {
     marginTop: spacing.md,
     flexDirection: 'row',
@@ -243,30 +304,48 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dangerSoft,
     borderRadius: radius.md,
     padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.danger,
   },
-  errorText: { flex: 1, marginLeft: spacing.sm, fontSize: 13, color: colors.dangerDark },
+  errorText: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.dangerDark,
+  },
   footer: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
     padding: spacing.lg,
-    paddingBottom: spacing.lg + (Platform.OS === 'ios' ? spacing.md : 0),
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderLight,
     backgroundColor: colors.surface,
   },
   btn: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 46,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
-  btnPrimary: { backgroundColor: colors.primary },
-  btnSecondary: { backgroundColor: colors.neutralSoft },
+  btnPrimary: {
+    backgroundColor: colors.primary,
+    ...theme.shadows.button,
+  },
+  btnSecondary: {
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   btnDimmed: { opacity: 0.6 },
-  btnPrimaryText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  btnSecondaryText: { fontSize: 15, fontWeight: '700', color: colors.neutralDark },
+  btnPrimaryText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
+  btnSecondaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.mochaDark,
+  },
   savingRow: { flexDirection: 'row', alignItems: 'center' },
   savingText: { marginLeft: spacing.sm },
 });

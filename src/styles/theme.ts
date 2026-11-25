@@ -1,41 +1,62 @@
-// TASK-02 - Design Tokens & Theme (selaras dengan studentTokens.ts milik TASK-04)
+// LabSync Central Design System & Theme
+// Warm Editorial + Modern Minimalist + Soft Organic UI
 
 import {
   CONTENT_MAX_WIDTH,
-  colors as studentColors,
-  radius as studentRadius,
-  spacing as studentSpacing,
+  colors as baseColors,
+  radius as baseRadius,
+  spacing as baseSpacing,
 } from '../features/student/studentTokens';
 
 export const colors = {
-  ...studentColors,
-  primaryLight: studentColors.primarySoft,
-  secondary: '#0F172A',
-  successLight: studentColors.successSoft,
-  warningLight: studentColors.warningSoft,
-  dangerLight: studentColors.dangerSoft,
-  surfaceSubtle: '#F3F4F6',
-  borderStrong: '#D1D5DB',
-  textPrimary: studentColors.text,
-  textSecondary: '#4B5563',
-  textLight: '#FFFFFF',
-  assistantTag: '#7C3AED',
-  assistantTagDark: '#5B21B6',
-  assistantTagBg: '#EDE9FE',
-  studentTag: studentColors.primary,
-  studentTagDark: studentColors.primaryDark,
-  studentTagBg: studentColors.primarySoft,
+  ...baseColors,
+  primaryLight: baseColors.primarySoft,
+  primaryText: baseColors.primaryText,
+  secondary: baseColors.mocha,
+  successLight: baseColors.successSoft,
+  warningLight: baseColors.warningSoft,
+  dangerLight: baseColors.dangerSoft,
+  surfaceMuted: baseColors.surfaceMuted,
+  borderDark: baseColors.borderDark,
+  accent: baseColors.accent,
 } as const;
 
 export const spacing = {
-  ...studentSpacing,
-  xxl: 32,
+  ...baseSpacing,
 } as const;
 
 export const radius = {
-  ...studentRadius,
-  xl: 20,
-  full: 999,
+  ...baseRadius,
+} as const;
+
+export const typography = {
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    color: colors.mochaDark,
+    letterSpacing: -0.3,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: colors.mochaDark,
+    letterSpacing: -0.2,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: colors.mochaDark,
+  },
+  body: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 19,
+  },
+  caption: {
+    fontSize: 11,
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
 } as const;
 
 export const theme = {
@@ -43,25 +64,39 @@ export const theme = {
   spacing,
   radius,
   borderRadius: radius,
+  typography,
   contentMaxWidth: CONTENT_MAX_WIDTH,
   shadows: {
     card: {
-      shadowColor: '#111827',
-      shadowOffset: { width: 0, height: 2 },
+      shadowColor: '#474329',
+      shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.06,
-      shadowRadius: 8,
+      shadowRadius: 10,
       elevation: 2,
     },
+    cardHover: {
+      shadowColor: '#474329',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 4,
+    },
     modal: {
-      shadowColor: '#111827',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.16,
-      shadowRadius: 20,
+      shadowColor: '#2C2718',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.18,
+      shadowRadius: 24,
       elevation: 8,
+    },
+    button: {
+      shadowColor: '#FC75B4',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.22,
+      shadowRadius: 8,
+      elevation: 3,
     },
   },
 } as const;
 
 export { CONTENT_MAX_WIDTH };
 export default theme;
-

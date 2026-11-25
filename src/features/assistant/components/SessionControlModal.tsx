@@ -1,5 +1,4 @@
 import React from 'react';
-
 import {
   Modal,
   Pressable,
@@ -8,17 +7,11 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-
 import { Ionicons } from '@expo/vector-icons';
 
-import type { Session } from '../../../data/mockData';
-
-import {
-  colors,
-  radius,
-  spacing,
-  theme,
-} from '../../../styles/theme';
+import type { Session } from '../../../types/models';
+import { colors, radius, spacing, theme } from '../../../styles/theme';
+import { formatSessionDate } from '../../../utils/dateUtils';
 
 export type SessionAction = 'open' | 'close';
 
@@ -47,10 +40,7 @@ const SessionControlModal = ({
 
   const percentage =
     capacity > 0
-      ? Math.min(
-          100,
-          Math.round((attendanceCount / capacity) * 100),
-        )
+      ? Math.min(100, Math.round((attendanceCount / capacity) * 100))
       : 0;
 
   if (!session) return null;
@@ -82,9 +72,7 @@ const SessionControlModal = ({
           style={[
             styles.card,
             {
-              width: isCompact
-                ? width
-                : Math.min(width - 32, 440),
+              width: isCompact ? width : Math.min(width - 32, 440),
             },
             isCompact && styles.bottomSheet,
           ]}
@@ -99,113 +87,83 @@ const SessionControlModal = ({
             style={[
               styles.iconCircle,
               {
-                backgroundColor: isOpening
-                  ? colors.successSoft
-                  : colors.dangerSoft,
+                backgroundColor: isOpening ? '#E2EDE3' : '#FCE8EC',
               },
             ]}
           >
             <Ionicons
-              name={
-                isOpening
-                  ? 'play-circle-outline'
-                  : 'lock-closed-outline'
-              }
-              size={27}
-              color={
-                isOpening ? colors.success : colors.danger
-              }
+              name={isOpening ? 'play-circle-outline' : 'lock-closed-outline'}
+              size={28}
+              color={isOpening ? '#4D7A54' : '#C53051'}
             />
           </View>
 
           <Text style={styles.title}>
-            {isOpening
-              ? 'Buka Sesi Praktikum?'
-              : 'Tutup Sesi Praktikum?'}
+            {isOpening ? 'Buka Sesi Praktikum?' : 'Tutup Sesi Praktikum?'}
           </Text>
 
           <Text style={styles.description}>
             {isOpening
-              ? `Sesi ${session.courseName} untuk kelas ${session.className} akan dibuka. Praktikan dapat mulai melakukan presensi.`
-              : `Sesi ${session.courseName} untuk kelas ${session.className} akan ditutup. Praktikan tidak dapat mengirim presensi baru.`}
+              ? `Sesi ${session.courseName} untuk kelas ${session.className} akan dibuka. Praktikan yang berada di radius laboratorium dapat mulai mengirim presensi.`
+              : `Sesi ${session.courseName} untuk kelas ${session.className} akan ditutup. Praktikan tidak dapat lagi melakukan presensi mandiri.`}
           </Text>
 
           <View style={styles.sessionInfo}>
-            <Text style={styles.moduleCode}>
-              {session.moduleCode} · Kelas {session.className}
-            </Text>
+            <View style={styles.moduleTag}>
+              <Text style={styles.moduleCode}>
+                {session.moduleCode} · Kelas {session.className}
+              </Text>
+            </View>
 
-            <Text style={styles.courseName}>
-              {session.courseName}
-            </Text>
+            <Text style={styles.courseName}>{session.courseName}</Text>
 
-            <Text style={styles.moduleTitle}>
-              {session.moduleTitle}
-            </Text>
+            {session.moduleTitle ? (
+              <Text style={styles.moduleTitle}>{session.moduleTitle}</Text>
+            ) : null}
 
             <View style={styles.divider} />
 
             <View style={styles.detailRow}>
-              <Ionicons
-                name="calendar-outline"
-                size={15}
-                color={colors.textMuted}
-              />
-              <Text style={styles.detailText}>
-                {session.date}
-              </Text>
+              <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
+              <Text style={styles.detailText}>{formatSessionDate(session.date)}</Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Ionicons
-                name="time-outline"
-                size={15}
-                color={colors.textMuted}
-              />
-              <Text style={styles.detailText}>
-                {session.time}
-              </Text>
+              <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+              <Text style={styles.detailText}>{session.time}</Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Ionicons
-                name="location-outline"
-                size={15}
-                color={colors.textMuted}
-              />
-              <Text style={styles.detailText}>
-                {session.room}
-              </Text>
+              <Ionicons name="location-outline" size={15} color={colors.textMuted} />
+              <Text style={styles.detailText}>{session.room}</Text>
             </View>
           </View>
 
           {!isOpening && (
             <View style={styles.attendanceSummary}>
               <View style={styles.summaryTop}>
-                <Text style={styles.summaryLabel}>
-                  Kehadiran saat ini
-                </Text>
-
-                <Text style={styles.summaryPercentage}>
-                  {percentage}%
-                </Text>
+                <Text style={styles.summaryLabel}>Kehadiran Mahasiswa</Text>
+                <Text style={styles.summaryPercentage}>{percentage}%</Text>
               </View>
 
               <Text style={styles.summaryCount}>
-                {attendanceCount} dari {capacity} mahasiswa hadir
+                {attendanceCount} dari {capacity} praktikan terdaftar hadir
               </Text>
 
               <View style={styles.progressTrack}>
                 <View
                   style={[
                     styles.progressFill,
-                    { width: `${percentage}%` },
+                    {
+                      width: `${percentage}%`,
+                      backgroundColor: percentage >= 75 ? colors.success : colors.primary,
+                    },
                   ]}
                 />
               </View>
 
               <Text style={styles.summaryNote}>
-                Rekap akhir tetap dapat dilihat setelah sesi ditutup.
+                Rekap lengkap daftar hadir tetap dapat dilihat dan diunduh setelah sesi ditutup.
               </Text>
             </View>
           )}
@@ -216,9 +174,7 @@ const SessionControlModal = ({
               onPress={onClose}
               style={[styles.button, styles.secondaryButton]}
             >
-              <Text style={styles.secondaryText}>
-                Batal
-              </Text>
+              <Text style={styles.secondaryText}>Batal</Text>
             </Pressable>
 
             <Pressable
@@ -227,9 +183,7 @@ const SessionControlModal = ({
               style={[
                 styles.button,
                 {
-                  backgroundColor: isOpening
-                    ? colors.success
-                    : colors.danger,
+                  backgroundColor: isOpening ? colors.success : colors.primary,
                 },
               ]}
             >
@@ -254,8 +208,10 @@ const styles = StyleSheet.create({
     maxWidth: 440,
     maxHeight: '90%',
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
     ...theme.shadows.modal,
   },
   bottomSheet: {
@@ -264,18 +220,18 @@ const styles = StyleSheet.create({
   },
   handleContainer: {
     alignItems: 'center',
-    marginTop: -spacing.sm,
+    marginTop: -spacing.md,
     marginBottom: spacing.md,
   },
   handle: {
-    width: 38,
+    width: 40,
     height: 4,
     borderRadius: radius.pill,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderDark,
   },
   iconCircle: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -294,27 +250,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     textAlign: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   sessionInfo: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginTop: spacing.lg,
   },
+  moduleTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.xs,
+    marginBottom: 6,
+  },
   moduleCode: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontSize: 11,
     fontWeight: '800',
   },
   courseName: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 20,
-    marginTop: spacing.xs,
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 21,
   },
   moduleTitle: {
     color: colors.textMuted,
@@ -325,32 +288,34 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: spacing.md,
+    marginVertical: spacing.sm,
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
   detailText: {
     flex: 1,
     minWidth: 0,
-    color: colors.text,
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
+    fontWeight: '500',
   },
   attendanceSummary: {
     marginTop: spacing.md,
     padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: '#F5DEB3',
   },
   summaryTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.sm,
   },
   summaryLabel: {
     color: colors.text,
@@ -358,14 +323,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   summaryPercentage: {
-    color: colors.danger,
-    fontSize: 17,
+    color: colors.text,
+    fontSize: 16,
     fontWeight: '800',
   },
   summaryCount: {
     color: colors.textMuted,
     fontSize: 12,
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
   progressTrack: {
     height: 6,
@@ -376,7 +341,6 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.danger,
     borderRadius: radius.pill,
   },
   summaryNote: {
@@ -387,33 +351,32 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
   },
   button: {
     flex: 1,
-    flexBasis: 130,
-    minWidth: 0,
-    minHeight: 44,
+    minHeight: 46,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    color: colors.primaryText,
+    fontSize: 14,
+    fontWeight: '800',
     textAlign: 'center',
   },
   secondaryButton: {
-    backgroundColor: colors.neutralSoft,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   secondaryText: {
-    color: colors.neutralDark,
-    fontSize: 13,
+    color: colors.text,
+    fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
   },

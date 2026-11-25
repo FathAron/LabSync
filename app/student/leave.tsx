@@ -23,11 +23,12 @@ import type { SessionInfo } from '../../src/features/student/types';
 import {
   CONTENT_MAX_WIDTH,
   colors,
-  spacing,
   radius,
-} from '../../src/features/student/studentTokens';
+  spacing,
+  theme,
+} from '../../src/styles/theme';
+import { deriveWeekdayName } from '../../src/utils/dateUtils';
 
-// Mengubah nilai unknown menjadi string yang aman.
 const toText = (value: unknown): string => {
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
@@ -38,7 +39,6 @@ const toText = (value: unknown): string => {
 
   if (typeof value === 'object' && value !== null && 'toDate' in value) {
     const toDate = (value as { toDate?: () => Date }).toDate;
-
     if (typeof toDate === 'function') {
       return toDate().toISOString();
     }
@@ -47,7 +47,6 @@ const toText = (value: unknown): string => {
   return '';
 };
 
-// Adapter SessionInfo Sprint 1 ke Session Sprint 2.
 const toLeaveSession = (session: SessionInfo): LeaveSession => {
   const raw =
     typeof session.raw === 'object' && session.raw !== null
@@ -66,15 +65,11 @@ const toLeaveSession = (session: SessionInfo): LeaveSession => {
     moduleTitle: session.moduleTitle,
     className: session.className,
     class: raw.class ?? session.className,
-    day: raw.day ?? '',
+    day: deriveWeekdayName(session.date) || raw.day || '',
     date: toText(session.date) || raw.date || '',
     startTime,
     endTime,
-    time: raw.time ?? (
-      startTime && endTime
-        ? `${startTime} - ${endTime} WIB`
-        : ''
-    ),
+    time: raw.time ?? (startTime && endTime ? `${startTime} - ${endTime} WIB` : ''),
     room: session.room,
     assistantId: raw.assistantId ?? '',
     assistantName: session.assistantName,
@@ -111,8 +106,8 @@ const LeaveScreen = () => {
     return (
       <StudentEmptyState
         icon="person-outline"
-        title="Identitas praktikan belum tersedia"
-        message="Silakan login menggunakan akun praktikan."
+        title="Identitas Praktikan Belum Tersedia"
+        message="Silakan masuk menggunakan akun praktikan."
       />
     );
   }
@@ -122,90 +117,75 @@ const LeaveScreen = () => {
       <FlatList
         data={leaveRequests}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <LeaveStatusCard request={item} />
-        )}
+        renderItem={({ item }) => <LeaveStatusCard request={item} />}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-
         ListHeaderComponent={
-          <View>
+          <View style={styles.headerBlock}>
+            {/* Info & Policy Card */}
             <View style={styles.infoCard}>
               <View style={styles.infoHeader}>
                 <Ionicons
                   name="document-text-outline"
-                  size={25}
-                  color={colors.primary}
+                  size={22}
+                  color={colors.mochaDark}
                 />
-
-                <Text style={styles.infoTitle}>
-                  Pengajuan Izin Praktikum
-                </Text>
+                <Text style={styles.infoTitle}>Pengajuan Izin Praktikum</Text>
               </View>
 
               <Text style={styles.infoDescription}>
-                Ajukan izin apabila tidak dapat mengikuti
-                sesi praktikum. AI akan membantu mengklasifikasikan
-                alasan izin sebagai informasi pendukung.
+                Ajukan izin apabila tidak dapat menghadiri sesi praktikum.
+                Sistem AI akan menganalisis alasan sebagai informasi pendukung.
+                Keputusan sepenuhnya ditentukan oleh asisten.
               </Text>
 
               <View style={styles.pendingContainer}>
-                <Text style={styles.pendingLabel}>
-                  Menunggu pemeriksaan
-                </Text>
-
-                <Text style={styles.pendingCount}>
-                  {pendingCount}
-                </Text>
+                <Text style={styles.pendingLabel}>Menunggu Pemeriksaan Asisten</Text>
+                <View style={styles.pendingBadge}>
+                  <Text style={styles.pendingCount}>{pendingCount}</Text>
+                </View>
               </View>
             </View>
 
+            {/* Create Leave Button */}
             <Pressable
-              style={styles.addButton}
+              accessibilityRole="button"
+              accessibilityLabel="Buat pengajuan izin baru"
+              style={({ pressed }) => [
+                styles.addButton,
+                pressed && styles.pressed,
+              ]}
               onPress={() => setModalVisible(true)}
             >
-              <Ionicons
-                name="add-circle-outline"
-                size={21}
-                color="#FFFFFF"
-              />
-
-              <Text style={styles.addButtonText}>
-                Buat Pengajuan Izin
-              </Text>
+              <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.addButtonText}>Buat Pengajuan Izin Baru</Text>
             </Pressable>
 
-            <Text style={styles.sectionTitle}>
-              Riwayat Pengajuan Izin
-            </Text>
+            {/* Section Header */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Riwayat Pengajuan Izin</Text>
+              <Text style={styles.sectionSubtitle}>
+                {leaveRequests.length} Pengajuan
+              </Text>
+            </View>
           </View>
         }
-
         ListEmptyComponent={
           loading ? (
             <View style={styles.emptyContainer}>
-              <ActivityIndicator
-                size="large"
-                color={colors.primary}
-              />
-              <Text style={styles.emptyText}>
-                Memuat riwayat pengajuan...
-              </Text>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.emptyText}>Memuat riwayat pengajuan...</Text>
             </View>
           ) : (
             <View style={styles.emptyContainer}>
               <Ionicons
                 name="document-outline"
-                size={42}
+                size={40}
                 color={colors.textMuted}
               />
-
-              <Text style={styles.emptyTitle}>
-                Belum Ada Pengajuan
-              </Text>
-
+              <Text style={styles.emptyTitle}>Belum Ada Pengajuan Izin</Text>
               <Text style={styles.emptyText}>
-                Riwayat pengajuan izinmu akan muncul di sini.
+                Riwayat pengajuan izin praktikum Anda akan muncul di sini setelah dikirimkan.
               </Text>
             </View>
           )
@@ -231,103 +211,121 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: colors.background,
   },
-
   listContent: {
     padding: spacing.lg,
-    paddingBottom: spacing.xl * 2,
+    paddingBottom: spacing.xxl * 2,
     flexGrow: 1,
   },
-
-  infoCard: {
-    backgroundColor: colors.primarySoft,
-    padding: spacing.lg,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
+  headerBlock: {
+    marginBottom: spacing.sm,
   },
-
+  infoCard: {
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    ...theme.shadows.card,
+  },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-
   infoTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: colors.mochaDark,
     flex: 1,
   },
-
   infoDescription: {
     fontSize: 12,
-    lineHeight: 19,
-    color: colors.primaryDark,
-    marginTop: spacing.md,
+    lineHeight: 18,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
-
   pendingContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: spacing.md,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm + 2,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderLight,
   },
-
   pendingLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.primaryDark,
+    color: colors.mochaDark,
   },
-
+  pendingBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.butterCreamSoft,
+    borderWidth: 1,
+    borderColor: colors.butterCream,
+  },
   pendingCount: {
-    fontSize: 20,
+    fontSize: 13,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.butterCreamDark,
   },
-
   addButton: {
     backgroundColor: colors.primary,
-    padding: spacing.md,
+    paddingVertical: 13,
+    paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     marginBottom: spacing.lg,
+    ...theme.shadows.button,
   },
-
   addButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
-
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.primaryDark,
-    marginBottom: spacing.md,
+    color: colors.mochaDark,
   },
-
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
-    gap: spacing.sm,
+    padding: spacing.xxl,
+    gap: spacing.xs,
   },
-
   emptyTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: colors.mochaDark,
+    marginTop: spacing.xs,
   },
-
   emptyText: {
     fontSize: 12,
     color: colors.textMuted,
     textAlign: 'center',
+    maxWidth: 300,
+    lineHeight: 18,
+  },
+  pressed: {
+    opacity: 0.85,
   },
 });
 

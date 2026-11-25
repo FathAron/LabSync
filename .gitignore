@@ -47,3 +47,13 @@ backend-ai/.env
 # Local notification backend credentials
 local-notification-backend/.env
 local-notification-backend/*.log
+
+# Local reference data (private academic files - never commit)
+local-reference-data/
+local-reference-data/**
+
+# Environment secrets - jangan upload
+.env
+.env.*
+!.env.example
+!.env.*.example

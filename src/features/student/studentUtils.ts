@@ -39,25 +39,25 @@ interface StatusMeta {
 export const STATUS_META: Record<SessionStatus, StatusMeta> = {
   PENDING: {
     label: 'Belum Dibuka',
-    description: 'Menunggu asisten membuka sesi.',
+    description: 'Menunggu asisten membuka sesi praktikum.',
     buttonLabel: 'Presensi Belum Dibuka',
-    fg: colors.warningDark,
-    bg: colors.warningSoft,
+    fg: colors.butterCreamDark,
+    bg: colors.butterCreamSoft,
     dot: colors.warning,
   },
   ACTIVE: {
-    label: 'Sesi Dibuka',
-    description: 'Sesi sedang berlangsung.',
-    buttonLabel: 'Lakukan Presensi Sekarang',
-    fg: colors.primaryDark,
-    bg: colors.primarySoft,
-    dot: colors.primary,
+    label: 'Sesi Aktif',
+    description: 'Sesi praktikum sedang berlangsung. Presensi dapat dilakukan.',
+    buttonLabel: 'Catat Presensi Sekarang',
+    fg: colors.sageDark,
+    bg: colors.sageSoft,
+    dot: colors.success,
   },
   CLOSED: {
-    label: 'Sesi Ditutup',
-    description: 'Sesi praktikum telah ditutup.',
-    buttonLabel: 'Presensi Ditutup',
-    fg: colors.neutralDark,
+    label: 'Sesi Selesai',
+    description: 'Sesi praktikum telah selesai dan ditutup oleh asisten.',
+    buttonLabel: 'Sesi Telah Selesai',
+    fg: colors.textMuted,
     bg: colors.neutralSoft,
     dot: colors.neutral,
   },
@@ -131,6 +131,9 @@ export const readSession = (session: unknown): SessionInfo | null => {
     ? asText(pickFirst(assistant, ['name', 'fullName']))
     : asText(assistant);
 
+  const mainClassVal = asText(pickFirst(session, ['mainClass']));
+  const groupCodeVal = asText(pickFirst(session, ['groupCode']));
+
   return {
     id,
     status,
@@ -140,7 +143,9 @@ export const readSession = (session: unknown): SessionInfo | null => {
     ),
     moduleCode: asText(pickFirst(session, ['moduleCode', 'sessionCode', 'code', 'module'])),
     moduleTitle: asText(pickFirst(session, ['moduleTitle', 'moduleName', 'topic'])),
-    className: asText(pickFirst(session, ['className', 'class', 'kelas'])),
+    className: asText(pickFirst(session, ['groupCode', 'className', 'class', 'kelas'])),
+    ...(mainClassVal ? { mainClass: mainClassVal } : {}),
+    ...(groupCodeVal ? { groupCode: groupCodeVal } : {}),
     date: pickFirst(session, ['date', 'sessionDate']),
     startTime: pickFirst(session, ['startTime', 'start', 'timeStart']),
     endTime: pickFirst(session, ['endTime', 'end', 'timeEnd']),

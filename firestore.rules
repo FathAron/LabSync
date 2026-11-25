@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -57,6 +58,7 @@ service cloud.firestore {
     // USERS
     // =========================
     match /users/{userId} {
+
       allow create: if isSelf(userId)
         && request.resource.data.uid == userId
         && request.resource.data.id == userId
@@ -90,11 +92,62 @@ service cloud.firestore {
 
       allow delete: if false;
 
-      // Subkoleksi token push notification per perangkat (SRS-06 - Adelia)
+      // =========================
+      // PUSH NOTIFICATION TOKENS
+      // SRS-06 - Adelia
+      // =========================
       match /pushTokens/{tokenId} {
-        allow read, write: if isSelf(userId);
+
+        allow read, delete: if isSelf(userId);
+
+        allow create: if isSelf(userId)
+          && request.resource.data.keys().hasAll([
+            'token',
+            'platform',
+            'enabled',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'token',
+            'platform',
+            'enabled',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.token is string
+          && request.resource.data.token.size() >= 10
+          && request.resource.data.token.size() <= 512
+          && request.resource.data.platform in ['android', 'ios']
+          && request.resource.data.enabled is bool
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp;
+
+        allow update: if isSelf(userId)
+          && request.resource.data.keys().hasAll([
+            'token',
+            'platform',
+            'enabled',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'token',
+            'platform',
+            'enabled',
+            'createdAt',
+            'updatedAt'
+          ])
+          && request.resource.data.token == resource.data.token
+          && request.resource.data.platform == resource.data.platform
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.enabled is bool
+          && request.resource.data.updatedAt is timestamp;
       }
 
+      // =========================
+      // DEVICES
+      // =========================
       match /devices/{deviceId} {
         allow read, write: if isSelf(userId);
       }
@@ -112,12 +165,7 @@ service cloud.firestore {
     // CLASSES
     // =========================
     match /classes/{classId} {
-      allow read: if isAssistant() || (
-        isStudent() && (
-          resource.data.name == currentUserDoc().data.className ||
-          request.auth.uid in resource.data.studentIds
-        )
-      );
+      allow read: if signedIn();
 
       allow create, update, delete: if isAssistant();
     }
@@ -126,7 +174,7 @@ service cloud.firestore {
     // SESSIONS
     // =========================
     match /sessions/{sessionId} {
-      allow read: if isAssistant() || isStudent();
+      allow read: if signedIn();
 
       allow create, update, delete: if isAssistant();
     }
@@ -136,13 +184,13 @@ service cloud.firestore {
     // =========================
     match /attendance/{attendanceId} {
       allow read: if isAssistant() || (
-        isStudent() && (
+        signedIn() && (
           resource == null ||
           resource.data.studentId == request.auth.uid
         )
       );
 
-      allow create: if isStudent()
+      allow create: if signedIn()
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.id == attendanceId
         && attendanceId == request.resource.data.sessionId + '_' + request.auth.uid
@@ -158,11 +206,11 @@ service cloud.firestore {
     // =========================
     match /leaveRequests/{leaveId} {
       allow read: if isAssistant() || (
-        isStudent() &&
+        signedIn() &&
         resource.data.studentId == request.auth.uid
       );
 
-      allow create: if isStudent()
+      allow create: if signedIn()
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.status == 'PENDING'
         && request.resource.data.reviewedBy == null
@@ -180,23 +228,6 @@ service cloud.firestore {
         );
 
       allow delete: if false;
-
-      // Subkoleksi token push notification per perangkat (SRS-06 - Adelia)
-      match /pushTokens/{tokenId} {
-        allow read, write: if isSelf(userId);
-      }
-
-      match /devices/{deviceId} {
-        allow read, write: if isSelf(userId);
-      }
-    }
-
-    // =========================
-    // LABORATORIES
-    // =========================
-    match /laboratories/{laboratoryId} {
-      allow read: if signedIn();
-      allow create, update, delete: if isAssistant();
     }
 
     // =========================

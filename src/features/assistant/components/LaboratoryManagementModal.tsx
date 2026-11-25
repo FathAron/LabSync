@@ -8,23 +8,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
 import { Ionicons } from '@expo/vector-icons';
 
 import AppModal from '../../../components/AppModal';
 import EmptyState from '../../../components/EmptyState';
-
 import { getCurrentCoordinates } from '../../../services/locationService';
 import {
   checkLocationPermission,
   openDeviceSettings,
 } from '../../../services/permissionService';
-
-import {
-  colors,
-  radius,
-  spacing,
-} from '../../../styles/theme';
+import { colors, radius, spacing } from '../../../styles/theme';
 
 import type {
   ApiResponse,
@@ -70,7 +63,6 @@ const Field = ({
 }: FieldProps) => (
   <View style={styles.field}>
     <Text style={styles.label}>{label}</Text>
-
     <TextInput
       value={value}
       onChangeText={onChangeText}
@@ -91,9 +83,7 @@ const LaboratoryManagementModal = ({
   onUpdateLaboratory,
   onDeleteLaboratory,
 }: Props) => {
-  const [selectedLabId, setSelectedLabId] = useState<
-    string | null
-  >(null);
+  const [selectedLabId, setSelectedLabId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
   const [name, setName] = useState('');
@@ -105,14 +95,10 @@ const LaboratoryManagementModal = ({
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState('');
-  const [canOpenSettings, setCanOpenSettings] =
-    useState(false);
+  const [canOpenSettings, setCanOpenSettings] = useState(false);
 
   const selectedLab = useMemo(
-    () =>
-      laboratories.find(
-        (item) => item.id === selectedLabId
-      ) ?? null,
+    () => laboratories.find((item) => item.id === selectedLabId) ?? null,
     [laboratories, selectedLabId]
   );
 
@@ -203,9 +189,7 @@ const LaboratoryManagementModal = ({
       parsedLat < -90 ||
       parsedLat > 90
     ) {
-      setError(
-        'Latitude harus berupa angka valid antara -90 sampai 90.'
-      );
+      setError('Latitude harus berupa angka valid antara -90 sampai 90.');
       return;
     }
 
@@ -215,9 +199,7 @@ const LaboratoryManagementModal = ({
       parsedLng < -180 ||
       parsedLng > 180
     ) {
-      setError(
-        'Longitude harus berupa angka valid antara -180 sampai 180.'
-      );
+      setError('Longitude harus berupa angka valid antara -180 sampai 180.');
       return;
     }
 
@@ -227,9 +209,7 @@ const LaboratoryManagementModal = ({
       parsedRadius < 10 ||
       parsedRadius > 5000
     ) {
-      setError(
-        'Radius presensi harus antara 10 sampai 5000 meter.'
-      );
+      setError('Radius presensi harus antara 10 sampai 5000 meter.');
       return;
     }
 
@@ -276,7 +256,6 @@ const LaboratoryManagementModal = ({
 
             try {
               const result = await onDeleteLaboratory(lab.id);
-
               if (result.ok) {
                 setSelectedLabId(null);
                 setEditing(false);
@@ -298,9 +277,9 @@ const LaboratoryManagementModal = ({
       visible={visible}
       onClose={handleClose}
       title="Kelola Lokasi Laboratorium"
-      description="Atur titik koordinat dan radius presensi setiap laboratorium sebagai acuan Maps dan validasi presensi."
+      description="Atur titik koordinat dan radius presensi setiap lab sebagai acuan Maps dan validasi presensi."
+      maxWidth={640}
     >
-      {/* HEADER */}
       <View style={styles.topRow}>
         <Text style={styles.sectionTitle}>
           Daftar Laboratorium ({laboratories.length})
@@ -311,14 +290,8 @@ const LaboratoryManagementModal = ({
           onPress={startCreate}
           style={styles.addBtn}
         >
-          <Ionicons
-            name="add"
-            size={16}
-            color="#FFFFFF"
-          />
-          <Text style={styles.addBtnText}>
-            Tambah Lab
-          </Text>
+          <Ionicons name="add" size={16} color={colors.primaryText} />
+          <Text style={styles.addBtnText}>Tambah Lab</Text>
         </Pressable>
       </View>
 
@@ -326,16 +299,14 @@ const LaboratoryManagementModal = ({
       {editing ? (
         <View style={styles.formBox}>
           <Text style={styles.formTitle}>
-            {selectedLab
-              ? `Ubah ${selectedLab.name}`
-              : 'Tambah Laboratorium Baru'}
+            {selectedLab ? `Ubah ${selectedLab.name}` : 'Tambah Laboratorium Baru'}
           </Text>
 
           <Field
             label="Nama Laboratorium *"
             value={name}
             onChangeText={setName}
-            placeholder="Lab Dasar Komputasi"
+            placeholder="Lab B (Gedung E Lantai 2)"
           />
 
           <Pressable
@@ -348,22 +319,12 @@ const LaboratoryManagementModal = ({
             ]}
           >
             {locating ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.primary}
-              />
+              <ActivityIndicator size="small" color={colors.accent} />
             ) : (
-              <Ionicons
-                name="locate-outline"
-                size={16}
-                color={colors.primary}
-              />
+              <Ionicons name="locate-outline" size={17} color={colors.accent} />
             )}
-
             <Text style={styles.gpsBtnText}>
-              {locating
-                ? 'Mengambil koordinat GPS...'
-                : 'Gunakan Lokasi Perangkat Saat Ini'}
+              {locating ? 'Mengambil koordinat GPS...' : 'Gunakan Koordinat GPS Saat Ini'}
             </Text>
           </Pressable>
 
@@ -401,7 +362,7 @@ const LaboratoryManagementModal = ({
             label="Keterangan Lokasi (opsional)"
             value={description}
             onChangeText={setDescription}
-            placeholder="Gedung Informatika Lantai 2"
+            placeholder="Gedung Informatika Lantai 3, Ruang A-304"
             multiline
           />
 
@@ -422,20 +383,12 @@ const LaboratoryManagementModal = ({
               accessibilityRole="button"
               onPress={handleSave}
               disabled={busy}
-              style={[
-                styles.saveBtn,
-                busy && styles.disabledBtn,
-              ]}
+              style={[styles.saveBtn, busy && styles.disabledBtn]}
             >
               {busy ? (
-                <ActivityIndicator
-                  size="small"
-                  color="#FFFFFF"
-                />
+                <ActivityIndicator size="small" color={colors.primaryText} />
               ) : (
-                <Text style={styles.saveText}>
-                  Simpan Lab
-                </Text>
+                <Text style={styles.saveText}>Simpan Lab</Text>
               )}
             </Pressable>
           </View>
@@ -445,119 +398,78 @@ const LaboratoryManagementModal = ({
       {/* ERROR */}
       {error ? (
         <View style={styles.errorBox}>
-          <Ionicons
-            name="alert-circle"
-            size={16}
-            color={colors.dangerDark}
-          />
+          <Ionicons name="alert-circle" size={16} color={colors.danger} />
           <Text style={styles.errorText}>{error}</Text>
-
           {canOpenSettings ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => {
                 void openDeviceSettings();
               }}
-              style={styles.settingsBtn}
+              style={styles.settingsLink}
             >
-              <Text style={styles.settingsBtnText}>
-                Pengaturan
-              </Text>
+              <Text style={styles.settingsLinkText}>Buka Pengaturan</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
 
-      {/* LIST */}
-      {laboratories.length === 0 ? (
+      {/* LAB LIST */}
+      {laboratories.length === 0 && !editing ? (
         <EmptyState
           icon="location-outline"
-          title="Belum Ada Laboratorium"
-          message="Tambahkan laboratorium pertama agar sesi praktikum dapat ditautkan ke koordinat dan radius presensi."
+          title="Belum ada laboratorium"
+          message="Tambahkan laboratorium untuk menetapkan lokasi dan radius presensi mahasiswa."
         />
       ) : (
-        <View style={styles.list}>
-          {laboratories.map((lab) => {
-            const active = selectedLabId === lab.id;
+        laboratories.map((lab) => {
+          const isSelected = selectedLab?.id === lab.id;
 
-            return (
-              <Pressable
-                key={lab.id}
-                onPress={() =>
-                  setSelectedLabId(active ? null : lab.id)
-                }
-                style={[
-                  styles.card,
-                  active && styles.cardActive,
-                ]}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.cardTitle}>
-                      {lab.name}
-                    </Text>
-
-                    {lab.description ? (
-                      <Text style={styles.cardDesc}>
-                        {lab.description}
-                      </Text>
-                    ) : null}
-
-                    <Text style={styles.cardMeta}>
-                      {lab.latitude.toFixed(6)},{' '}
-                      {lab.longitude.toFixed(6)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.radiusBadge}>
-                    <Ionicons
-                      name="radio-outline"
-                      size={13}
-                      color={colors.primaryDark}
-                    />
-                    <Text style={styles.radiusText}>
-                      {lab.radiusMeters} m
-                    </Text>
+          return (
+            <View
+              key={lab.id}
+              style={[styles.labItem, isSelected && styles.labItemSelected]}
+            >
+              <View style={styles.labInfo}>
+                <View style={styles.labTitleRow}>
+                  <Text style={styles.labName}>{lab.name}</Text>
+                  <View style={styles.radiusPill}>
+                    <Ionicons name="radio" size={11} color={colors.accent} />
+                    <Text style={styles.radiusText}>{lab.radiusMeters} m</Text>
                   </View>
                 </View>
 
-                <View style={styles.cardActions}>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => startEdit(lab)}
-                    style={styles.iconAction}
-                  >
-                    <Ionicons
-                      name="create-outline"
-                      size={15}
-                      color={colors.primary}
-                    />
-                    <Text style={styles.iconActionText}>
-                      Ubah
-                    </Text>
-                  </Pressable>
+                <Text style={styles.labCoords}>
+                  {lab.latitude.toFixed(6)}, {lab.longitude.toFixed(6)}
+                </Text>
 
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => handleDelete(lab)}
-                    style={styles.iconActionDanger}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={15}
-                      color={colors.danger}
-                    />
-                    <Text
-                      style={styles.iconActionDangerText}
-                    >
-                      Hapus
-                    </Text>
-                  </Pressable>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+                {lab.description ? (
+                  <Text style={styles.labDesc}>{lab.description}</Text>
+                ) : null}
+              </View>
+
+              <View style={styles.labActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ubah ${lab.name}`}
+                  onPress={() => startEdit(lab)}
+                  style={styles.iconBtn}
+                >
+                  <Ionicons name="create-outline" size={17} color={colors.text} />
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Hapus ${lab.name}`}
+                  onPress={() => handleDelete(lab)}
+                  style={styles.iconBtn}
+                >
+                  <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                </Pressable>
+              </View>
+            </View>
+          );
+        })
       )}
     </AppModal>
   );
@@ -571,238 +483,218 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
+    color: colors.text,
     fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontWeight: '800',
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
   },
   addBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.primaryText,
+    fontSize: 12,
+    fontWeight: '800',
   },
   formBox: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
     padding: spacing.md,
-    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    marginBottom: spacing.lg,
   },
   formTitle: {
-    fontSize: 14,
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: spacing.md,
+  },
+  field: {
+    marginBottom: spacing.md,
+  },
+  label: {
+    color: colors.text,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  input: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
+    fontSize: 14,
+  },
+  multiline: {
+    minHeight: 70,
+    textAlignVertical: 'top',
   },
   gpsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    gap: 6,
+    minHeight: 40,
     borderRadius: radius.md,
-    paddingVertical: spacing.xs + 3,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    backgroundColor: '#E2EDE3',
+    borderWidth: 1,
+    borderColor: '#C6DEC8',
+    marginBottom: spacing.md,
   },
   gpsBtnText: {
+    color: '#345E3B',
     fontSize: 12,
     fontWeight: '700',
-    color: colors.primaryDark,
   },
   row: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   half: {
     flex: 1,
   },
-  field: {
-    marginBottom: spacing.sm,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 2,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  multiline: {
-    minHeight: 58,
-    textAlignVertical: 'top',
-  },
   formActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     gap: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   cancelBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 3,
+    flex: 1,
+    minHeight: 44,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  saveBtn: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs + 3,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    minWidth: 110,
-    alignItems: 'center',
-  },
-  saveText: {
+    color: colors.text,
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+  },
+  saveBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveText: {
+    color: colors.primaryText,
+    fontSize: 13,
+    fontWeight: '800',
   },
   disabledBtn: {
-    opacity: 0.65,
+    opacity: 0.6,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.dangerLight,
-    padding: spacing.sm,
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: '#F8CCD4',
+    padding: spacing.md,
     borderRadius: radius.md,
     marginBottom: spacing.md,
   },
   errorText: {
     flex: 1,
+    color: colors.danger,
     fontSize: 12,
+    lineHeight: 17,
     fontWeight: '600',
-    color: colors.dangerDark,
   },
-  settingsBtn: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.dangerDark,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+  settingsLink: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
   },
-  settingsBtnText: {
-    fontSize: 11,
+  settingsLinkText: {
+    color: colors.primaryDark,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.dangerDark,
+    textDecorationLine: 'underline',
   },
-  list: {
-    gap: spacing.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
+  labItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    backgroundColor: colors.surface,
+    marginBottom: spacing.sm,
+    gap: spacing.md,
   },
-  cardActive: {
+  labItemSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceMuted,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  cardInfo: {
+  labInfo: {
     flex: 1,
+    minWidth: 0,
   },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  cardDesc: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  cardMeta: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginTop: 4,
-  },
-  radiusBadge: {
+  labTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.full,
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  labName: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  radiusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#E2EDE3',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
   },
   radiusText: {
-    fontSize: 12,
+    color: '#345E3B',
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.primaryDark,
   },
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  labCoords: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+    fontFamily: 'monospace',
   },
-  iconAction: {
+  labDesc: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  labActions: {
     flexDirection: 'row',
+    gap: 6,
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.surfaceSubtle,
-  },
-  iconActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  iconActionDanger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.dangerLight,
-  },
-  iconActionDangerText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.dangerDark,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 });
 

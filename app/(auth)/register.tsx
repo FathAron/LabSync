@@ -43,7 +43,7 @@ export default function RegisterScreen() {
       return;
     }
     if (role === 'student' && !nim.trim()) {
-      setErrorMsg('NIM wajib diisi untuk praktikan.');
+      setErrorMsg('NIM wajib diisi untuk akun praktikan.');
       return;
     }
     if (role === 'student' && !className.trim()) {
@@ -81,25 +81,30 @@ export default function RegisterScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top, spacing.lg), paddingBottom: spacing.xxl },
+          {
+            paddingTop: Math.max(insets.top + spacing.sm, spacing.lg),
+            paddingBottom: Math.max(insets.bottom + 140, spacing.xxl * 3),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
+          {/* Brand Header */}
           <View style={styles.brandHeader}>
             <View style={styles.logoBadge}>
-              <Ionicons name="flask" size={24} color="#FFFFFF" />
+              <Ionicons name="flask" size={24} color={colors.primaryText} />
             </View>
             <Text style={styles.brandTitle}>Daftar Akun LabSync</Text>
             <Text style={styles.brandSubtitle}>
-              Pilih peran Anda dan lengkapi data untuk mulai menggunakan aplikasi
+              Pilih peran Anda dan lengkapi data profil untuk memulai
             </Text>
           </View>
 
+          {/* Form Card */}
           <View style={styles.card}>
             {errorMsg ? (
               <View style={styles.errorBox} accessibilityLiveRegion="polite">
-                <Ionicons name="alert-circle" size={18} color={colors.dangerDark} />
+                <Ionicons name="alert-circle" size={17} color={colors.danger} />
                 <Text style={styles.errorText}>{errorMsg}</Text>
               </View>
             ) : null}
@@ -112,17 +117,20 @@ export default function RegisterScreen() {
                 accessibilityState={{ selected: role === 'student' }}
                 disabled={submitting}
                 onPress={() => setRole('student')}
-                style={[styles.roleChip, role === 'student' && styles.roleChipActiveStudent]}
+                style={[
+                  styles.roleChip,
+                  role === 'student' && styles.roleChipActiveStudent,
+                ]}
               >
                 <Ionicons
-                  name="school"
+                  name="school-outline"
                   size={16}
-                  color={role === 'student' ? colors.primaryDark : colors.textMuted}
+                  color={role === 'student' ? colors.primaryText : colors.textMuted}
                 />
                 <Text
                   style={[
                     styles.roleChipText,
-                    role === 'student' && styles.roleChipTextStudent,
+                    role === 'student' && styles.roleChipTextActive,
                   ]}
                 >
                   Praktikan
@@ -134,20 +142,23 @@ export default function RegisterScreen() {
                 accessibilityState={{ selected: role === 'assistant' }}
                 disabled={submitting}
                 onPress={() => setRole('assistant')}
-                style={[styles.roleChip, role === 'assistant' && styles.roleChipActiveAssistant]}
+                style={[
+                  styles.roleChip,
+                  role === 'assistant' && styles.roleChipActiveAssistant,
+                ]}
               >
                 <Ionicons
-                  name="shield-checkmark"
+                  name="shield-checkmark-outline"
                   size={16}
-                  color={role === 'assistant' ? colors.assistantTagDark : colors.textMuted}
+                  color={role === 'assistant' ? colors.text : colors.textMuted}
                 />
                 <Text
                   style={[
                     styles.roleChipText,
-                    role === 'assistant' && styles.roleChipTextAssistant,
+                    role === 'assistant' && styles.roleChipTextActive,
                   ]}
                 >
-                  Asisten
+                  Asisten Lab
                 </Text>
               </Pressable>
             </View>
@@ -168,7 +179,7 @@ export default function RegisterScreen() {
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>Email Institusi</Text>
               <View style={styles.inputWrap}>
                 <Ionicons name="mail-outline" size={18} color={colors.textMuted} />
                 <TextInput
@@ -261,14 +272,14 @@ export default function RegisterScreen() {
               ]}
             >
               {submitting ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.primaryText} />
               ) : (
                 <Text style={styles.primaryBtnText}>Daftar & Masuk</Text>
               )}
             </Pressable>
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Sudah punya akun? </Text>
+              <Text style={styles.footerText}>Sudah memiliki akun? </Text>
               <Link href="/(auth)/login" asChild>
                 <Pressable hitSlop={8}>
                   <Text style={styles.footerLink}>Masuk di sini</Text>
@@ -289,12 +300,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
   container: {
     width: '100%',
-    maxWidth: Math.min(CONTENT_MAX_WIDTH, 460),
+    maxWidth: Math.min(CONTENT_MAX_WIDTH, 440),
     alignSelf: 'center',
   },
   brandHeader: {
@@ -304,11 +314,12 @@ const styles = StyleSheet.create({
   logoBadge: {
     width: 48,
     height: 48,
-    borderRadius: radius.md,
+    borderRadius: radius.xl,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+    ...theme.shadows.card,
   },
   brandTitle: {
     fontSize: 22,
@@ -316,18 +327,18 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   brandSubtitle: {
-    marginTop: spacing.xs,
-    fontSize: 13,
+    marginTop: 4,
+    fontSize: 12,
     color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: 19,
+    lineHeight: 18,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.lg,
+    padding: spacing.xl,
     ...theme.shadows.card,
   },
   errorBox: {
@@ -335,17 +346,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: radius.sm,
+    borderColor: '#F8CCD4',
+    borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.md,
+    gap: spacing.xs,
   },
   errorText: {
     flex: 1,
-    marginLeft: spacing.sm,
     fontSize: 12,
     fontWeight: '600',
-    color: colors.dangerDark,
+    color: colors.danger,
+    lineHeight: 17,
   },
   roleRow: {
     flexDirection: 'row',
@@ -357,39 +369,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
-    borderRadius: radius.md,
+    paddingVertical: 10,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceMuted,
+    gap: 6,
   },
   roleChipActiveStudent: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   roleChipActiveAssistant: {
-    backgroundColor: colors.assistantTagBg,
-    borderColor: colors.assistantTag,
+    backgroundColor: '#EDF5EE',
+    borderColor: '#C6DEC8',
   },
   roleChipText: {
-    marginLeft: 6,
     fontSize: 13,
     fontWeight: '600',
     color: colors.textMuted,
   },
-  roleChipTextStudent: {
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
-  roleChipTextAssistant: {
-    fontWeight: '700',
-    color: colors.assistantTagDark,
+  roleChipTextActive: {
+    fontWeight: '800',
+    color: colors.text,
   },
   fieldGroup: {
     marginBottom: spacing.md,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 6,
@@ -397,10 +405,10 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     minHeight: 46,
   },
@@ -412,9 +420,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   primaryBtn: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     backgroundColor: colors.primary,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,10 +436,10 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.primaryText,
   },
   footerRow: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -443,7 +451,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 13,
     fontWeight: '800',
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 });
-
