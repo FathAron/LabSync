@@ -21,7 +21,9 @@ interface SessionControlModalProps {
   session: Session | null;
   action: SessionAction;
   attendanceCount: number;
+  excusedCount?: number;
   capacity: number;
+  submitting?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }
@@ -31,7 +33,9 @@ const SessionControlModal = ({
   session,
   action,
   attendanceCount,
+  excusedCount = 0,
   capacity,
+  submitting = false,
   onClose,
   onConfirm,
 }: SessionControlModalProps) => {
@@ -149,6 +153,7 @@ const SessionControlModal = ({
 
               <Text style={styles.summaryCount}>
                 {attendanceCount} dari {capacity} praktikan terdaftar hadir
+                {excusedCount > 0 ? ` · ${excusedCount} izin disetujui (bebas denda)` : ''}
               </Text>
 
               <View style={styles.progressTrack}>
@@ -172,24 +177,31 @@ const SessionControlModal = ({
           <View style={styles.footer}>
             <Pressable
               accessibilityRole="button"
+              disabled={submitting}
               onPress={onClose}
-              style={[styles.button, styles.secondaryButton]}
+              style={[styles.button, styles.secondaryButton, submitting && { opacity: 0.6 }]}
             >
               <Text style={styles.secondaryText}>Batal</Text>
             </Pressable>
 
             <Pressable
               accessibilityRole="button"
+              disabled={submitting}
               onPress={onConfirm}
               style={[
                 styles.button,
                 {
                   backgroundColor: isOpening ? colors.success : colors.primary,
+                  opacity: submitting ? 0.6 : 1,
                 },
               ]}
             >
               <Text style={styles.primaryText}>
-                {isOpening ? 'Ya, Buka Sesi' : 'Ya, Tutup Sesi'}
+                {submitting
+                  ? 'Memproses...'
+                  : isOpening
+                  ? 'Ya, Buka Sesi'
+                  : 'Ya, Tutup Sesi'}
               </Text>
             </Pressable>
           </View>

@@ -18,7 +18,14 @@ import type { Session } from '../types/models';
 
 export interface AppNotificationItem {
   id: string;
-  type: 'SESSION_OPENED' | 'SCHEDULE_CHANGED' | 'LEAVE_APPROVED' | 'LEAVE_REJECTED';
+  type:
+    | 'SESSION_OPENED'
+    | 'SCHEDULE_CHANGED'
+    | 'LEAVE_APPROVED'
+    | 'LEAVE_REJECTED'
+    | 'FINE_CREATED'
+    | 'PAYMENT_SUCCESS'
+    | 'PAYMENT_FAILED';
   title: string;
   subtitle: string;
   time: string;
@@ -180,9 +187,9 @@ const SwipeableNotificationItem: React.FC<SwipeableItemProps> = ({
                 backgroundColor:
                   item.type === 'SESSION_OPENED'
                     ? colors.primary
-                    : item.type === 'LEAVE_APPROVED'
+                    : item.type === 'LEAVE_APPROVED' || item.type === 'PAYMENT_SUCCESS'
                     ? colors.success
-                    : item.type === 'LEAVE_REJECTED'
+                    : item.type === 'LEAVE_REJECTED' || item.type === 'PAYMENT_FAILED'
                     ? colors.danger
                     : colors.warning,
               },

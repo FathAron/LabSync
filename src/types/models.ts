@@ -16,7 +16,8 @@ export interface UserProfile {
   classCode?: string; // kode kelas utama terstandar (mis. 'C')
   className: string; // wajib untuk student (mis. 'IF-26-A' atau 'Kelas C'), '' untuk assistant
   class: string; // alias kompatibilitas Sprint 1 untuk className
-  assistantRole?: string; // mis. 'Koordinator Asisten' | 'Asisten Laboratorium'
+  assistantRole?: string; // mis. 'aslab' | 'asprak' | 'Asisten Laboratorium'
+  assignedClasses?: string[]; // daftar kelas yang dipegang Asprak (mis. ['A', 'C'])
   avatar: string; // 2 huruf inisial, mis. 'AS'
   createdAt: string; // ISO 8601 UTC string
   updatedAt: string; // ISO 8601 UTC string

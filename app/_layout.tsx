@@ -18,6 +18,7 @@ import { FeedbackToast } from '../src/components/FeedbackToast';
 import { Header } from '../src/components/Header';
 import { AppProvider, useApp } from '../src/context/AppContext';
 import { AssistantView } from '../src/screens/AssistantView';
+import { resolveNotificationTargetPath } from '../src/services/notificationService';
 import { colors, spacing } from '../src/styles/theme';
 
 type PendingNotification =
@@ -41,6 +42,7 @@ const isAllowedNotificationPath = (value: unknown): value is string => {
     '/student',
     '/student/leave',
     '/student/history',
+    '/student/payments',
   ].includes(pathname);
 };
 
@@ -139,15 +141,9 @@ const AppShell = () => {
           sessionId: notificationData.sessionId,
         });
       } else {
-        // SCHEDULE_CHANGED dan keputusan izin menggunakan route internal.
+        // SCHEDULE_CHANGED, keputusan izin, dan event pembayaran (FINE_CREATED, PAYMENT_SUCCESS, PAYMENT_FAILED).
         const notificationPath = notificationData?.url;
-        const fallbackPath =
-          notificationData?.type === 'SCHEDULE_CHANGED'
-            ? '/student'
-            : notificationData?.type === 'LEAVE_APPROVED' ||
-                notificationData?.type === 'LEAVE_REJECTED'
-              ? '/student/leave'
-              : null;
+        const fallbackPath = resolveNotificationTargetPath(notificationData);
         const targetPath = isAllowedNotificationPath(notificationPath)
           ? notificationPath
           : fallbackPath;

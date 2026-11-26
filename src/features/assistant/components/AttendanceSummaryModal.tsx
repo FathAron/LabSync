@@ -10,15 +10,25 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import type { Session, AttendanceRecord } from '../../../types/models';
+import type {
+  AttendanceRecord,
+  LeaveRequest,
+  Session,
+} from '../../../types/models';
 import { colors, radius, spacing, theme } from '../../../styles/theme';
 import { formatTimeWIB } from '../../student/studentUtils';
 import { formatDisplayClass } from '../../../utils/classUtils';
+
+type AttendanceWithPunctuality = AttendanceRecord & {
+  attendanceStatus?: 'ON_TIME' | 'LATE' | 'EXCUSED';
+  lateMinutes?: number;
+};
 
 interface AttendanceSummaryModalProps {
   visible: boolean;
   session: Session | null;
   records: AttendanceRecord[];
+  approvedLeaves?: LeaveRequest[];
   onClose: () => void;
 }
 
@@ -26,6 +36,7 @@ const AttendanceSummaryModal = ({
   visible,
   session,
   records,
+  approvedLeaves = [],
   onClose,
 }: AttendanceSummaryModalProps) => {
   const { width, height } = useWindowDimensions();
@@ -44,6 +55,7 @@ const AttendanceSummaryModal = ({
 
   const capacity = Math.max(0, session.totalStudents);
   const presentCount = records.length;
+  const excusedCount = approvedLeaves.length;
   const percentage =
     capacity > 0 ? Math.min(100, Math.round((presentCount / capacity) * 100)) : 0;
 
@@ -125,6 +137,13 @@ const AttendanceSummaryModal = ({
                 <Text style={styles.metricLabel}>Persentase Hadir</Text>
                 <Text style={styles.metricValue}>{percentage}%</Text>
               </View>
+
+              <View style={styles.metricCard}>
+                <Text style={styles.metricLabel}>Izin (Excused)</Text>
+                <Text style={[styles.metricValue, { color: colors.warningDark }]}>
+                  {excusedCount}
+                </Text>
+              </View>
             </View>
 
             {/* PROGRESS SECTION */}
@@ -169,6 +188,9 @@ const AttendanceSummaryModal = ({
               sortedRecords.map((record, index) => {
                 const time =
                   formatTimeWIB(record.timestamp) ?? record.attendedAt ?? '—';
+                const ext = record as AttendanceWithPunctuality;
+                const isLate = ext.attendanceStatus === 'LATE';
+                const isOnTime = ext.attendanceStatus === 'ON_TIME';
 
                 return (
                   <View key={record.id} style={styles.attendeeRow}>
@@ -188,14 +210,78 @@ const AttendanceSummaryModal = ({
                       ) : null}
                     </View>
 
-                    <View style={styles.attendanceTime}>
-                      <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-                      <Text style={styles.timeText}>{time}</Text>
+                    <View style={styles.statusColumn}>
+                      <View
+                        style={[
+                          styles.attendanceTime,
+                          isLate && styles.attendanceTimeLate,
+                        ]}
+                      >
+                        <Ionicons
+                          name={isLate ? 'time' : 'checkmark-circle'}
+                          size={14}
+                          color={isLate ? colors.warningDark : colors.success}
+                        />
+                        <Text
+                          style={[
+                            styles.timeText,
+                            isLate && styles.timeTextLate,
+                          ]}
+                        >
+                          {time}
+                        </Text>
+                      </View>
+                      {isLate ? (
+                        <Text style={styles.punctualityLateText}>
+                          Terlambat{typeof ext.lateMinutes === 'number' && ext.lateMinutes > 0 ? ` ${ext.lateMinutes} mnt` : ''}
+                        </Text>
+                      ) : isOnTime ? (
+                        <Text style={styles.punctualityOnTimeText}>Tepat Waktu</Text>
+                      ) : null}
                     </View>
                   </View>
                 );
               })
             )}
+
+            {/* EXCUSED ABSENCE LIST (APPROVED LEAVE) */}
+            {approvedLeaves.length > 0 ? (
+              <View style={styles.excusedSection}>
+                <View style={styles.listHeader}>
+                  <Text style={styles.listTitle}>Izin Disetujui (Excused Absence)</Text>
+                  <View style={styles.excusedBadge}>
+                    <Text style={styles.excusedBadgeText}>{excusedCount} Mahasiswa</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.excusedNote}>
+                  Praktikan berikut tidak dihitung hadir namun dibebaskan dari denda keterlambatan.
+                </Text>
+
+                {approvedLeaves.map((leave, index) => (
+                  <View key={leave.id} style={styles.attendeeRow}>
+                    <View style={[styles.indexBadge, styles.excusedIndexBadge]}>
+                      <Text style={[styles.indexText, { color: colors.warningDark }]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+
+                    <View style={styles.attendeeInfo}>
+                      <Text style={styles.attendeeName}>{leave.studentName}</Text>
+                      <Text style={styles.attendeeNim}>NIM: {leave.studentNim}</Text>
+                      <Text style={styles.attendeeNotes} numberOfLines={2}>
+                        Alasan: {leave.reason}
+                      </Text>
+                    </View>
+
+                    <View style={styles.excusedStatusPill}>
+                      <Ionicons name="document-text-outline" size={13} color={colors.warningDark} />
+                      <Text style={styles.excusedStatusText}>Excused · Bebas Denda</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </ScrollView>
 
           <View style={styles.footer}>
@@ -446,6 +532,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontStyle: 'italic',
   },
+  statusColumn: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
   attendanceTime: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -455,10 +545,67 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: radius.pill,
   },
+  attendanceTimeLate: {
+    backgroundColor: colors.warningSoft,
+  },
   timeText: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.success,
+  },
+  timeTextLate: {
+    color: colors.warningDark,
+  },
+  punctualityOnTimeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  punctualityLateText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.warningDark,
+  },
+  excusedSection: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  excusedBadge: {
+    backgroundColor: colors.warningSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  excusedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.warningDark,
+  },
+  excusedNote: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+    lineHeight: 17,
+  },
+  excusedIndexBadge: {
+    backgroundColor: colors.warningSoft,
+    borderColor: '#F5DEB3',
+  },
+  excusedStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.warningSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  excusedStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.warningDark,
   },
   footer: {
     padding: spacing.md,

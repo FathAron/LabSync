@@ -673,3 +673,119 @@ export const dispatchLeaveReviewedPush = async (
     return { success: false, sentCount: 0 };
   }
 };
+
+// ==========================================
+// SPRINT 4: PAYMENT & FINE NOTIFICATION CONTRACT (PLACEHOLDER READY-TO-WIRE)
+// ==========================================
+
+export type PaymentNotificationType =
+  | 'FINE_CREATED'
+  | 'PAYMENT_SUCCESS'
+  | 'PAYMENT_FAILED';
+
+export interface PaymentNotificationPayload {
+  type: PaymentNotificationType;
+  invoiceId: string;
+  orderId?: string;
+  sessionId?: string;
+  amount?: number;
+  url: '/student/payments';
+}
+
+export const isPaymentNotificationType = (
+  value: unknown
+): value is PaymentNotificationType =>
+  value === 'FINE_CREATED' ||
+  value === 'PAYMENT_SUCCESS' ||
+  value === 'PAYMENT_FAILED';
+
+export const resolveNotificationTargetPath = (
+  data: Record<string, unknown> | undefined
+): string | null => {
+  if (!data) return null;
+
+  if (isPaymentNotificationType(data.type)) {
+    return '/student/payments';
+  }
+
+  if (data.type === 'SCHEDULE_CHANGED') {
+    return '/student';
+  }
+
+  if (data.type === 'LEAVE_APPROVED' || data.type === 'LEAVE_REJECTED') {
+    return '/student/leave';
+  }
+
+  return null;
+};
+
+/**
+ * Placeholder notifikasi lokal untuk simulasi event pembayaran/tagihan
+ * sebelum backend Midtrans (Naufal) mengirim push notification terverifikasi.
+ */
+export const triggerPlaceholderPaymentNotification = async (
+  type: PaymentNotificationType,
+  options?: {
+    invoiceId?: string;
+    orderId?: string;
+    amount?: number;
+    sessionTitle?: string;
+  }
+): Promise<{ ok: boolean; message: string }> => {
+  const invoiceId = options?.invoiceId ?? 'placeholder-invoice';
+  const sessionLabel = options?.sessionTitle ?? 'Praktikum Terkait';
+  const amountLabel =
+    typeof options?.amount === 'number'
+      ? `Rp ${options.amount.toLocaleString('id-ID')}`
+      : 'denda keterlambatan';
+
+  const copyMap: Record<PaymentNotificationType, { title: string; body: string }> = {
+    FINE_CREATED: {
+      title: 'Tagihan Denda Keterlambatan',
+      body: `Tagihan ${amountLabel} untuk ${sessionLabel} telah dibuat. Ketuk untuk melihat & membayar.`,
+    },
+    PAYMENT_SUCCESS: {
+      title: 'Pembayaran Denda Berhasil',
+      body: `Pembayaran ${amountLabel} (${sessionLabel}) telah terkonfirmasi lunas.`,
+    },
+    PAYMENT_FAILED: {
+      title: 'Pembayaran Denda Gagal',
+      body: `Pembayaran untuk ${sessionLabel} gagal atau kedaluwarsa. Ketuk untuk mencoba ulang.`,
+    },
+  };
+
+  const payload: PaymentNotificationPayload = {
+    type,
+    invoiceId,
+    orderId: options?.orderId,
+    amount: options?.amount,
+    url: '/student/payments',
+  };
+
+  if (Platform.OS === 'web') {
+    return {
+      ok: true,
+      message: `[Placeholder Web] ${copyMap[type].title}: ${copyMap[type].body}`,
+    };
+  }
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: copyMap[type].title,
+        body: copyMap[type].body,
+        data: payload as unknown as Record<string, unknown>,
+      },
+      trigger: null,
+    });
+    return {
+      ok: true,
+      message: 'Simulasi notifikasi pembayaran dikirim ke perangkat.',
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Gagal menampilkan simulasi notifikasi: ${String(error)}`,
+    };
+  }
+};

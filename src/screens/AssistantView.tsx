@@ -13,13 +13,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import type {
   CreateSessionInput,
+  Laboratory,
+  LeaveRequest,
   Session,
+  UserProfile,
 } from '../types/models';
 import {
   formatTimeRange,
 } from '../features/student/studentUtils';
 import { formatSessionDate } from '../utils/dateUtils';
-import { formatDisplayClass } from '../utils/classUtils';
+import { formatDisplayClass, normalizeClassCode } from '../utils/classUtils';
 import {
   CONTENT_MAX_WIDTH,
   colors,
@@ -31,6 +34,7 @@ import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import { usePracticum } from '../hooks/usePracticum';
 import { useLaboratories } from '../hooks/useLaboratories';
+import { useLeave } from '../hooks/useLeave';
 
 import SessionControlModal from '../features/assistant/components/SessionControlModal';
 import AttendanceSummaryModal from '../features/assistant/components/AttendanceSummaryModal';
@@ -49,7 +53,7 @@ type ConfirmAction = {
 type AssistantTab = 'practicum' | 'leave' | 'maps';
 
 export const AssistantView = () => {
-  const { showToast, syncError } = useApp();
+  const { currentUser, showToast, syncError } = useApp();
 
   const {
     classes,
@@ -76,30 +80,118 @@ export const AssistantView = () => {
     deleteLaboratory,
   } = useLaboratories();
 
+  const { leaveRequests } = useLeave();
+
   const [activeTab, setActiveTab] = useState<AssistantTab>('practicum');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [actionSubmitting, setActionSubmitting] = useState(false);
   const [recapSessionId, setRecapSessionId] = useState<string | null>(null);
   const [sessionFormVisible, setSessionFormVisible] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [classManagementVisible, setClassManagementVisible] = useState(false);
   const [labManagementVisible, setLabManagementVisible] = useState(false);
 
+  const assistantSubRole = currentUser?.assistantRole?.trim().toLowerCase();
+  const isAslab = assistantSubRole === 'aslab';
+  const isAsprak = !isAslab;
+  const currentUid = currentUser?.uid ?? '';
+
+  // Kumpulan ID laboratorium dan kelas yang menjadi penugasan Asprak
+  const assignedLabIds = useMemo(() => {
+    const ids = new Set<string>();
+    const userAssigned = (currentUser as (UserProfile & { assignedLabIds?: string[] }) | null)
+      ?.assignedLabIds;
+
+    if (Array.isArray(userAssigned)) {
+      userAssigned.forEach((id) => {
+        if (typeof id === 'string' && id) ids.add(id);
+      });
+    }
+
+    laboratories.forEach((lab) => {
+      const assistantIds = (lab as Laboratory & { assistantIds?: string[] }).assistantIds;
+      if (currentUid && Array.isArray(assistantIds) && assistantIds.includes(currentUid)) {
+        ids.add(lab.id);
+      }
+    });
+
+    return ids;
+  }, [currentUser, currentUid, laboratories]);
+
+  const assignedClassCodes = useMemo(() => {
+    const codes = new Set<string>();
+    const rawClasses = currentUser?.assignedClasses;
+    if (Array.isArray(rawClasses)) {
+      rawClasses.forEach((cls) => {
+        const normalized = normalizeClassCode(cls);
+        if (normalized) codes.add(normalized);
+      });
+    }
+    return codes;
+  }, [currentUser?.assignedClasses]);
+
+  const scopedClasses = useMemo(() => {
+    if (isAslab || !currentUid) return classes;
+    return classes.filter((cls) => {
+      if (cls.assistantId === currentUid) return true;
+      const code = normalizeClassCode(cls.name);
+      return Boolean(code && assignedClassCodes.has(code));
+    });
+  }, [assignedClassCodes, classes, currentUid, isAslab]);
+
+  const assignedClassIds = useMemo(
+    () => new Set(scopedClasses.map((cls) => cls.id)),
+    [scopedClasses]
+  );
+
+  // Scope sesi sesuai penugasan Asprak (atau semua sesi untuk Aslab)
+  const scopedSessions = useMemo(() => {
+    if (isAslab || !currentUid) return sessions;
+
+    return sessions.filter((session) => {
+      if (session.assistantId === currentUid) return true;
+      if (session.laboratoryId && assignedLabIds.has(session.laboratoryId)) return true;
+      if (session.classId && assignedClassIds.has(session.classId)) return true;
+      const sessionClassCode = normalizeClassCode(
+        session.targetClassCode || session.groupCode || session.className || session.class
+      );
+      if (sessionClassCode && assignedClassCodes.has(sessionClassCode)) return true;
+      return false;
+    });
+  }, [assignedClassCodes, assignedClassIds, assignedLabIds, currentUid, isAslab, sessions]);
+
+  // Peta izin APPROVED per sessionId untuk penandaan excused absence (bebas denda)
+  const approvedLeavesBySession = useMemo(() => {
+    const map = new Map<string, LeaveRequest[]>();
+    leaveRequests.forEach((req) => {
+      if (req.status !== 'APPROVED') return;
+      const list = map.get(req.sessionId) ?? [];
+      list.push(req);
+      map.set(req.sessionId, list);
+    });
+    return map;
+  }, [leaveRequests]);
+
   // STATISTICS
   const stats = useMemo(() => {
-    const activeCount = sessions.filter((item) => item.status === 'ACTIVE').length;
-    const closedCount = sessions.filter((item) => item.status === 'CLOSED').length;
+    const activeCount = scopedSessions.filter((item) => item.status === 'ACTIVE').length;
+    const closedCount = scopedSessions.filter((item) => item.status === 'CLOSED').length;
+    const scopedSessionIds = new Set(scopedSessions.map((item) => item.id));
+    const totalPresent = attendanceList.filter((record) =>
+      scopedSessionIds.has(record.sessionId)
+    ).length;
 
     return {
       activeCount,
       closedCount,
-      totalPresent: attendanceList.length,
+      totalPresent,
     };
-  }, [sessions, attendanceList]);
+  }, [scopedSessions, attendanceList]);
 
   // RECAP SESSION
   const recapSession = useMemo(
-    () => sessions.find((item) => item.id === recapSessionId) ?? null,
-    [sessions, recapSessionId]
+    () => scopedSessions.find((item) => item.id === recapSessionId) ?? null,
+    [scopedSessions, recapSessionId]
   );
 
   const recapAttendees = useMemo(
@@ -107,18 +199,30 @@ export const AssistantView = () => {
     [recapSession, getAttendanceForSession]
   );
 
+  const recapApprovedLeaves = useMemo(
+    () => (recapSession ? approvedLeavesBySession.get(recapSession.id) ?? [] : []),
+    [recapSession, approvedLeavesBySession]
+  );
+
   // OPEN / CLOSE ACTIONS
   const handleConfirm = async () => {
-    if (!confirmAction) return;
+    if (!confirmAction || actionSubmitting) return;
 
-    const result =
-      confirmAction.type === 'open'
-        ? await openSession(confirmAction.session.id)
-        : await closeSession(confirmAction.session.id);
+    setActionSubmitting(true);
+    try {
+      const result =
+        confirmAction.type === 'open'
+          ? await openSession(confirmAction.session.id)
+          : await closeSession(confirmAction.session.id);
 
-    if (result.ok) {
-      showToast(result.message, 'success');
-      setConfirmAction(null);
+      if (result.ok) {
+        showToast(result.message, 'success');
+        setConfirmAction(null);
+      } else {
+        showToast(result.message, 'error');
+      }
+    } finally {
+      setActionSubmitting(false);
     }
   };
 
@@ -176,6 +280,15 @@ export const AssistantView = () => {
   // RENDER HEADER
   const renderHeader = () => (
     <View style={styles.headerBlock}>
+      {isAsprak ? (
+        <View style={styles.roleScopeBanner}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={colors.mochaDark} />
+          <Text style={styles.roleScopeText}>
+            Mode Asprak · Mengelola kelas & sesi praktikum penugasan Anda
+          </Text>
+        </View>
+      ) : null}
+
       {/* QUICK ACTIONS ROW */}
       <View style={styles.managementRow}>
         <Pressable
@@ -189,24 +302,26 @@ export const AssistantView = () => {
           <Ionicons name="people-outline" size={17} color={colors.text} />
           <Text style={styles.managementButtonText}>Kelola Kelas</Text>
           <View style={styles.buttonCount}>
-            <Text style={styles.buttonCountText}>{classes.length}</Text>
+            <Text style={styles.buttonCountText}>{scopedClasses.length}</Text>
           </View>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setLabManagementVisible(true)}
-          style={({ pressed }) => [
-            styles.managementButton,
-            pressed && styles.btnPressed,
-          ]}
-        >
-          <Ionicons name="location-outline" size={17} color={colors.text} />
-          <Text style={styles.managementButtonText}>Kelola Lab</Text>
-          <View style={styles.buttonCount}>
-            <Text style={styles.buttonCountText}>{laboratories.length}</Text>
-          </View>
-        </Pressable>
+        {isAslab ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setLabManagementVisible(true)}
+            style={({ pressed }) => [
+              styles.managementButton,
+              pressed && styles.btnPressed,
+            ]}
+          >
+            <Ionicons name="location-outline" size={17} color={colors.text} />
+            <Text style={styles.managementButtonText}>Kelola Lab</Text>
+            <View style={styles.buttonCount}>
+              <Text style={styles.buttonCountText}>{laboratories.length}</Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -249,7 +364,7 @@ export const AssistantView = () => {
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Jadwal Sesi Praktikum</Text>
         <View style={styles.countBadge}>
-          <Text style={styles.countBadgeText}>{sessions.length} Sesi</Text>
+          <Text style={styles.countBadgeText}>{scopedSessions.length} Sesi</Text>
         </View>
       </View>
 
@@ -265,7 +380,9 @@ export const AssistantView = () => {
   // RENDER SESSION ITEM
   const renderSessionItem = ({ item }: { item: Session }) => {
     const attendees = getAttendanceForSession(item.id);
+    const excusedLeaves = approvedLeavesBySession.get(item.id) ?? [];
     const presentCount = attendees.length;
+    const excusedCount = excusedLeaves.length;
     const capacity = Math.max(0, item.totalStudents);
     const percentage =
       capacity > 0 ? Math.min(100, Math.round((presentCount / capacity) * 100)) : 0;
@@ -323,6 +440,7 @@ export const AssistantView = () => {
             <Text style={styles.progressLabel}>Kehadiran Mahasiswa</Text>
             <Text style={styles.progressValue}>
               {presentCount} / {capacity} ({percentage}%)
+              {excusedCount > 0 ? ` · ${excusedCount} Izin` : ''}
             </Text>
           </View>
 
@@ -527,15 +645,19 @@ export const AssistantView = () => {
             </View>
           ) : (
             <FlatList
-              data={sessions}
+              data={scopedSessions}
               keyExtractor={(item) => item.id}
               renderItem={renderSessionItem}
               ListHeaderComponent={renderHeader}
               ListEmptyComponent={
                 <EmptyState
                   icon="calendar-outline"
-                  title="Belum Ada Sesi Praktikum"
-                  message="Tambahkan kelas dan sesi praktikum untuk mulai mengatur jadwal dan absensi."
+                  title={isAsprak ? 'Belum Ada Sesi Penugasan' : 'Belum Ada Sesi Praktikum'}
+                  message={
+                    isAsprak
+                      ? 'Tambahkan sesi praktikum untuk kelas penugasan Anda atau tunggu penugasan dari Aslab.'
+                      : 'Tambahkan kelas dan sesi praktikum untuk mulai mengatur jadwal dan absensi.'
+                  }
                 />
               }
               contentContainerStyle={styles.listContent}
@@ -563,8 +685,16 @@ export const AssistantView = () => {
             ? getAttendanceForSession(confirmAction.session.id).length
             : 0
         }
+        excusedCount={
+          confirmAction
+            ? (approvedLeavesBySession.get(confirmAction.session.id) ?? []).length
+            : 0
+        }
         capacity={confirmAction?.session.totalStudents ?? 0}
-        onClose={() => setConfirmAction(null)}
+        submitting={actionSubmitting}
+        onClose={() => {
+          if (!actionSubmitting) setConfirmAction(null);
+        }}
         onConfirm={handleConfirm}
       />
 
@@ -573,6 +703,7 @@ export const AssistantView = () => {
         visible={recapSession !== null}
         session={recapSession}
         records={recapAttendees}
+        approvedLeaves={recapApprovedLeaves}
         onClose={() => setRecapSessionId(null)}
       />
 
@@ -580,9 +711,14 @@ export const AssistantView = () => {
       <SessionFormModal
         visible={sessionFormVisible}
         session={editingSession}
-        classes={classes}
+        classes={scopedClasses}
         laboratories={laboratories}
-        existingSessions={sessions}
+        existingSessions={scopedSessions}
+        allowedClassCodes={
+          isAsprak && assignedClassCodes.size > 0
+            ? Array.from(assignedClassCodes).sort()
+            : undefined
+        }
         onClose={handleCloseSessionForm}
         onSubmit={handleSessionSubmit}
       />
@@ -590,7 +726,7 @@ export const AssistantView = () => {
       {/* CLASS MANAGEMENT MODAL */}
       <ClassManagementModal
         visible={classManagementVisible}
-        classes={classes}
+        classes={scopedClasses}
         students={students}
         onClose={() => setClassManagementVisible(false)}
         onCreateClass={createClass}
@@ -599,15 +735,17 @@ export const AssistantView = () => {
         onAssignStudentToClass={assignStudentToClass}
       />
 
-      {/* LABORATORY MANAGEMENT MODAL */}
-      <LaboratoryManagementModal
-        visible={labManagementVisible}
-        laboratories={laboratories}
-        onClose={() => setLabManagementVisible(false)}
-        onCreateLaboratory={createLaboratory}
-        onUpdateLaboratory={updateLaboratory}
-        onDeleteLaboratory={deleteLaboratory}
-      />
+      {/* LABORATORY MANAGEMENT MODAL (Hanya untuk Aslab) */}
+      {isAslab ? (
+        <LaboratoryManagementModal
+          visible={labManagementVisible}
+          laboratories={laboratories}
+          onClose={() => setLabManagementVisible(false)}
+          onCreateLaboratory={createLaboratory}
+          onUpdateLaboratory={updateLaboratory}
+          onDeleteLaboratory={deleteLaboratory}
+        />
+      ) : null}
     </View>
   );
 };
@@ -660,6 +798,24 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     marginBottom: spacing.sm,
+  },
+  roleScopeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.sageSoft,
+    borderWidth: 1,
+    borderColor: '#C6DEC8',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    marginBottom: spacing.sm,
+  },
+  roleScopeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.mochaDark,
   },
   managementRow: {
     flexDirection: 'row',

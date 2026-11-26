@@ -4,13 +4,24 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../../src/styles/theme';
+import { useApp } from '../../src/context/AppContext';
 import { useStudentModule } from '../../src/features/student/useStudentModule';
 import { useLeave } from '../../src/hooks/useLeave';
+import { useFinesPlaceholder } from '../../src/features/student/paymentPlaceholder';
 
 const StudentLayout = () => {
   const insets = useSafeAreaInsets();
+  const { currentStudent } = useApp();
   const { mySessions, myRecords, isAttended } = useStudentModule();
   const { pendingCount } = useLeave();
+  const { invoices } = useFinesPlaceholder(currentStudent);
+
+  const unpaidFinesCount = invoices.filter(
+    (inv) =>
+      inv.status === 'UNPAID' ||
+      inv.status === 'PENDING' ||
+      inv.status === 'FAILED'
+  ).length;
 
   // Jumlah sesi aktif yang belum dihadiri
   const todo = mySessions.filter(
@@ -121,6 +132,28 @@ const StudentLayout = () => {
             tabBarIcon: ({ focused }) => (
               <Ionicons
                 name={focused ? 'map' : 'map-outline'}
+                size={22}
+                color={focused ? colors.mochaDark : colors.textMuted}
+              />
+            ),
+          }}
+        />
+
+        {/* TAB 5: PEMBAYARAN & RIWAYAT DENDA */}
+        <Tabs.Screen
+          name="payments"
+          options={{
+            title: 'Pembayaran',
+            tabBarBadge: unpaidFinesCount > 0 ? unpaidFinesCount : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: colors.danger,
+              color: '#FFFFFF',
+              fontSize: 10,
+              fontWeight: '800',
+            },
+            tabBarIcon: ({ focused }) => (
+              <Ionicons
+                name={focused ? 'wallet' : 'wallet-outline'}
                 size={22}
                 color={focused ? colors.mochaDark : colors.textMuted}
               />

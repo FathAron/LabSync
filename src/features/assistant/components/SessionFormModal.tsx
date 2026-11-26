@@ -47,6 +47,7 @@ type Props = {
   classes: LabClass[];
   laboratories?: Laboratory[];
   existingSessions?: Session[];
+  allowedClassCodes?: string[];
   onClose: () => void;
   onSubmit: (
     input: CreateSessionInput
@@ -85,6 +86,7 @@ interface SessionFormContentProps {
   classes: LabClass[];
   laboratories: Laboratory[];
   existingSessions: Session[];
+  allowedClassCodes?: string[];
   onClose: () => void;
   onSubmit: (input: CreateSessionInput) => Promise<ApiResponse<unknown>>;
 }
@@ -94,6 +96,7 @@ const SessionFormContent = ({
   classes,
   laboratories,
   existingSessions,
+  allowedClassCodes,
   onClose,
   onSubmit,
 }: SessionFormContentProps) => {
@@ -183,8 +186,22 @@ const SessionFormContent = ({
     return getAcademicHierarchyForCourse(courseName);
   }, [courseName]);
 
-  // Available main classes: from catalog + custom added + default classes
+  const normalizedAllowedClasses = useMemo(() => {
+    if (!allowedClassCodes || allowedClassCodes.length === 0) return null;
+    const set = new Set<string>();
+    allowedClassCodes.forEach((c) => {
+      const norm = normalizeMainClass(c) || c.trim().toUpperCase();
+      if (norm) set.add(norm);
+    });
+    return set.size > 0 ? Array.from(set).sort() : null;
+  }, [allowedClassCodes]);
+
+  // Available main classes: scoped to Asprak's assigned classes if restricted, otherwise catalog + A-F
   const availableMainClasses = useMemo(() => {
+    if (normalizedAllowedClasses) {
+      return normalizedAllowedClasses;
+    }
+
     const set = new Set<string>();
     if (hierarchy) {
       hierarchy.mainClasses.forEach((mc) => {
@@ -199,7 +216,7 @@ const SessionFormContent = ({
       if (norm) set.add(norm);
     });
     return Array.from(set).sort();
-  }, [hierarchy, customMainClasses]);
+  }, [hierarchy, customMainClasses, normalizedAllowedClasses]);
 
   // Conflict detection
   const conflictResult: ConflictCheckResult = useMemo(() => {
@@ -240,9 +257,14 @@ const SessionFormContent = ({
         if (!courseName.trim()) return 'Pilih atau masukkan nama mata praktikum.';
         if (!courseCode.trim()) return 'Kode mata praktikum tidak boleh kosong.';
         return null;
-      case 2:
+      case 2: {
         if (!mainClass.trim()) return 'Pilih salah satu kelas utama (misal: C).';
+        const normSelected = normalizeMainClass(mainClass) || mainClass.trim().toUpperCase();
+        if (normalizedAllowedClasses && !normalizedAllowedClasses.includes(normSelected)) {
+          return `Anda hanya dapat membuat sesi untuk kelas yang Anda pegang (${normalizedAllowedClasses.join(', ')}).`;
+        }
         return null;
+      }
       case 3:
         if (!room.trim()) return 'Pilih laboratorium atau tentukan lokasi ruangan.';
         return null;
@@ -543,7 +565,9 @@ const SessionFormContent = ({
             </View>
 
             <Text style={styles.stepInstruction}>
-              Pilih kelas utama (A, B, C, D, E, F) untuk mata praktikum ini. Sesi praktikum akan tersimpan sebagai Kelas {mainClass ? normalizeMainClass(mainClass) : '...'}.
+              {normalizedAllowedClasses
+                ? `Pilih kelas yang Anda pegang (${normalizedAllowedClasses.join(', ')}) untuk mata praktikum ini. Sesi praktikum akan tersimpan sebagai Kelas ${mainClass ? normalizeMainClass(mainClass) : '...'}.`
+                : `Pilih kelas utama (A, B, C, D, E, F) untuk mata praktikum ini. Sesi praktikum akan tersimpan sebagai Kelas ${mainClass ? normalizeMainClass(mainClass) : '...'}.`}
             </Text>
 
             <View style={styles.choiceGrid}>
@@ -580,30 +604,32 @@ const SessionFormContent = ({
               })}
             </View>
 
-            {/* ADD CUSTOM MAIN CLASS */}
-            <View style={styles.addInlineBox}>
-              <Text style={styles.inputLabel}>+ Tambah Kelas Utama Baru</Text>
-              <View style={styles.inlineRow}>
-                <TextInput
-                  style={[styles.input, styles.inlineInput]}
-                  placeholder="Contoh: E atau F"
-                  placeholderTextColor={colors.textMuted}
-                  value={customMainClassInput}
-                  onChangeText={setCustomMainClassInput}
-                />
-                <Pressable
-                  onPress={handleAddCustomClass}
-                  disabled={!customMainClassInput.trim()}
-                  style={[
-                    styles.inlineBtn,
-                    !customMainClassInput.trim() && styles.btnDisabled,
-                  ]}
-                >
-                  <Ionicons name="add" size={16} color={colors.surface} />
-                  <Text style={styles.inlineBtnText}>Tambah</Text>
-                </Pressable>
+            {/* ADD CUSTOM MAIN CLASS (Hanya jika tidak dibatasi kelas penugasan Asprak) */}
+            {!normalizedAllowedClasses ? (
+              <View style={styles.addInlineBox}>
+                <Text style={styles.inputLabel}>+ Tambah Kelas Utama Baru</Text>
+                <View style={styles.inlineRow}>
+                  <TextInput
+                    style={[styles.input, styles.inlineInput]}
+                    placeholder="Contoh: E atau F"
+                    placeholderTextColor={colors.textMuted}
+                    value={customMainClassInput}
+                    onChangeText={setCustomMainClassInput}
+                  />
+                  <Pressable
+                    onPress={handleAddCustomClass}
+                    disabled={!customMainClassInput.trim()}
+                    style={[
+                      styles.inlineBtn,
+                      !customMainClassInput.trim() && styles.btnDisabled,
+                    ]}
+                  >
+                    <Ionicons name="add" size={16} color={colors.surface} />
+                    <Text style={styles.inlineBtnText}>Tambah</Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
+            ) : null}
           </View>
         )}
 
@@ -1096,6 +1122,7 @@ const SessionFormModal = ({
   classes,
   laboratories = [],
   existingSessions = [],
+  allowedClassCodes,
   onClose,
   onSubmit,
 }: Props) => {
@@ -1113,6 +1140,7 @@ const SessionFormModal = ({
           classes={classes}
           laboratories={laboratories}
           existingSessions={existingSessions}
+          allowedClassCodes={allowedClassCodes}
           onClose={onClose}
           onSubmit={onSubmit}
         />

@@ -16,6 +16,8 @@ export interface RegisterPayload {
   email: string;
   password: string;
   role: UserRole;
+  assistantRole?: 'asprak' | 'aslab';
+  assignedClasses?: string[];
   nim: string;
   className: string;
 }
@@ -125,6 +127,11 @@ const normalizeUserProfile = (uid: string, raw: Record<string, unknown>): UserPr
         : role === 'assistant'
         ? 'Asisten Laboratorium'
         : undefined,
+    assignedClasses: Array.isArray(raw.assignedClasses)
+      ? raw.assignedClasses
+          .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+          .map((item) => normalizeMainClass(item) || item.trim().toUpperCase())
+      : undefined,
     avatar: typeof raw.avatar === 'string' && raw.avatar.trim() ? raw.avatar : getInitials(name),
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : nowIso,
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : nowIso,
@@ -203,10 +210,39 @@ export const registerUser = async (payload: RegisterPayload): Promise<ApiRespons
     };
 
     if (role === 'assistant') {
-      profileData.assistantRole = 'Asisten Laboratorium';
+      const resolvedSubRole =
+        payload.assistantRole === 'aslab' ? 'aslab' : 'asprak';
+      profileData.assistantRole = resolvedSubRole;
+
+      if (resolvedSubRole === 'asprak' && Array.isArray(payload.assignedClasses)) {
+        const cleanedClasses = Array.from(
+          new Set(
+            payload.assignedClasses
+              .map((item) => normalizeMainClass(item) || item.trim().toUpperCase())
+              .filter(Boolean)
+          )
+        );
+        profileData.assignedClasses = cleanedClasses;
+      }
     }
 
-    await setDoc(doc(db, 'users', uid), profileData);
+    try {
+      await setDoc(doc(db, 'users', uid), profileData);
+    } catch (firestoreError) {
+      // Rollback akun Auth yang baru dibuat jika penulisan profil Firestore ditolak
+      await credential.user.delete().catch(() => undefined);
+      const mapped = mapFirebaseError(
+        firestoreError,
+        'Gagal menyimpan profil pengguna ke Firestore.'
+      );
+      if (mapped.errorCode === 'FORBIDDEN' && role === 'assistant') {
+        return makeError(
+          'Email ini tidak diizinkan mendaftar sebagai Asisten di Firestore Rules. Gunakan email asisten yang terdaftar atau perbarui whitelist di firestore.rules.',
+          'FORBIDDEN'
+        );
+      }
+      return makeError(mapped.message, mapped.errorCode);
+    }
 
     const profile = normalizeUserProfile(uid, profileData);
     return makeSuccess('Registrasi berhasil. Selamat datang di LabSync!', profile);

@@ -25,6 +25,8 @@ export default function RegisterScreen() {
   const { register } = useApp();
 
   const [role, setRole] = useState<UserRole>('student');
+  const [assistantSubRole, setAssistantSubRole] = useState<'asprak' | 'aslab'>('asprak');
+  const [assignedClasses, setAssignedClasses] = useState<string[]>([]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [nim, setNim] = useState('');
@@ -53,6 +55,10 @@ export default function RegisterScreen() {
       setErrorMsg('Pilih kelas praktikum Anda (A, B, C, D, E, atau F).');
       return;
     }
+    if (role === 'assistant' && assistantSubRole === 'asprak' && assignedClasses.length === 0) {
+      setErrorMsg('Pilih minimal satu kelas yang Anda pegang sebagai Asprak.');
+      return;
+    }
     if (password.length < 6) {
       setErrorMsg('Kata sandi minimal 6 karakter.');
       return;
@@ -65,6 +71,11 @@ export default function RegisterScreen() {
         email: email.trim(),
         password,
         role,
+        assistantRole: role === 'assistant' ? assistantSubRole : undefined,
+        assignedClasses:
+          role === 'assistant' && assistantSubRole === 'asprak'
+            ? assignedClasses
+            : undefined,
         nim: nim.trim(),
         className: role === 'student' ? normalizeMainClass(className) || className.trim().toUpperCase() : '',
       });
@@ -161,10 +172,67 @@ export default function RegisterScreen() {
                     role === 'assistant' && styles.roleChipTextActive,
                   ]}
                 >
-                  Asisten Lab
+                  Asisten
                 </Text>
               </Pressable>
             </View>
+
+            {role === 'assistant' ? (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>Jenis Asisten</Text>
+                <View style={styles.roleRow}>
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: assistantSubRole === 'asprak' }}
+                    disabled={submitting}
+                    onPress={() => setAssistantSubRole('asprak')}
+                    style={[
+                      styles.roleChip,
+                      assistantSubRole === 'asprak' && styles.roleChipActiveAssistant,
+                    ]}
+                  >
+                    <Ionicons
+                      name="calendar-outline"
+                      size={16}
+                      color={assistantSubRole === 'asprak' ? colors.text : colors.textMuted}
+                    />
+                    <Text
+                      style={[
+                        styles.roleChipText,
+                        assistantSubRole === 'asprak' && styles.roleChipTextActive,
+                      ]}
+                    >
+                      Asprak
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: assistantSubRole === 'aslab' }}
+                    disabled={submitting}
+                    onPress={() => setAssistantSubRole('aslab')}
+                    style={[
+                      styles.roleChip,
+                      assistantSubRole === 'aslab' && styles.roleChipActiveAssistant,
+                    ]}
+                  >
+                    <Ionicons
+                      name="business-outline"
+                      size={16}
+                      color={assistantSubRole === 'aslab' ? colors.text : colors.textMuted}
+                    />
+                    <Text
+                      style={[
+                        styles.roleChipText,
+                        assistantSubRole === 'aslab' && styles.roleChipTextActive,
+                      ]}
+                    >
+                      Aslab
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Nama Lengkap</Text>
@@ -252,6 +320,49 @@ export default function RegisterScreen() {
                 </View>
                 <Text style={styles.classHint}>
                   Pilih kelas akademik Anda: A, B, C, D, E, atau F.
+                </Text>
+              </View>
+            ) : assistantSubRole === 'asprak' ? (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.label}>
+                  Kelas yang Dipegang (Pilih satu atau lebih)
+                </Text>
+                <View style={styles.classGrid}>
+                  {CLASS_OPTIONS.map((cls) => {
+                    const isSelected = assignedClasses.includes(cls);
+                    return (
+                      <Pressable
+                        key={cls}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: isSelected }}
+                        disabled={submitting}
+                        onPress={() => {
+                          setAssignedClasses((prev) =>
+                            prev.includes(cls)
+                              ? prev.filter((item) => item !== cls)
+                              : [...prev, cls]
+                          );
+                          setErrorMsg(null);
+                        }}
+                        style={[
+                          styles.classChip,
+                          isSelected && styles.classChipSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.classChipText,
+                            isSelected && styles.classChipTextSelected,
+                          ]}
+                        >
+                          {cls}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Text style={styles.classHint}>
+                  Asprak hanya mengelola kelas dan sesi praktikum yang dipilih.
                 </Text>
               </View>
             ) : null}

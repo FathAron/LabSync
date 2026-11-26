@@ -67,7 +67,10 @@ service cloud.firestore {
           request.resource.data.role == 'student' ||
           (
             request.resource.data.role == 'assistant' &&
-            isAllowedAssistantEmail()
+            (
+              request.resource.data.assistantRole == 'asprak' ||
+              isAllowedAssistantEmail()
+            )
           )
         );
 
