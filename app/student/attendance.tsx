@@ -41,6 +41,7 @@ import {
 } from '../../src/services/permissionService';
 import {
   fetchLaboratoryLocation,
+  normalizePracticumSnapshot,
   recordAttendance,
 } from '../../src/services/practicumService';
 import type { Session } from '../../src/types/models';
@@ -100,6 +101,10 @@ export default function AttendanceScreen() {
 
   // Ambil laboratoryId dari dokumen sesi Firestore dan muat data laboratorium terkait
   useEffect(() => {
+    queueMicrotask(() => {
+      setSubmitResult(null);
+      setNotes('');
+    });
     if (!sessionId) return;
     let active = true;
 
@@ -118,12 +123,9 @@ export default function AttendanceScreen() {
         }
 
         const raw = snap.data() as Record<string, unknown>;
-        if (!sessions.some((item) => item.id === sessionId)) {
-          setFallbackSession({
-            ...(raw as unknown as Session),
-            id: snap.id,
-          });
-        }
+        setFallbackSession(
+          normalizePracticumSnapshot.normalizeSession(raw, snap.id)
+        );
 
         const rawLabId =
           typeof raw.laboratoryId === 'string' ? raw.laboratoryId.trim() : '';
@@ -162,7 +164,7 @@ export default function AttendanceScreen() {
     return () => {
       active = false;
     };
-  }, [sessionId, sessions]);
+  }, [sessionId]);
 
   const checkDeviceLocation = useCallback(async (): Promise<Coordinates | null> => {
     setLocationState('checking');
@@ -200,9 +202,12 @@ export default function AttendanceScreen() {
     }
   }, []);
 
+  const activeSessionId = session?.id;
+  const activeSessionStatus = session?.status;
+
   // Pemeriksaan awal otomatis saat halaman dibuka
   useEffect(() => {
-    if (!session || session.status !== 'ACTIVE' || alreadyAttended) return;
+    if (!activeSessionId || activeSessionStatus !== 'ACTIVE' || alreadyAttended) return;
     let active = true;
 
     const autoCheck = async () => {
@@ -241,7 +246,7 @@ export default function AttendanceScreen() {
     return () => {
       active = false;
     };
-  }, [alreadyAttended, session]);
+  }, [alreadyAttended, activeSessionId, activeSessionStatus]);
 
   const distanceMeters = useMemo(() => {
     if (!coordinates || !laboratory) return null;
@@ -317,7 +322,7 @@ export default function AttendanceScreen() {
         </Text>
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.replace('/student')}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/student'))}
           style={styles.secondaryBtn}
         >
           <Text style={styles.secondaryBtnText}>Kembali ke Daftar Sesi</Text>
@@ -345,7 +350,7 @@ export default function AttendanceScreen() {
         </Text>
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.replace('/student')}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/student'))}
           style={styles.secondaryBtn}
         >
           <Text style={styles.secondaryBtnText}>Kembali ke Daftar Sesi</Text>

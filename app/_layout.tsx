@@ -270,7 +270,8 @@ const AppShell = () => {
     if (authLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inStudentGroup = segments[0] === 'student';
+    const inStudentGroup =
+      segments[0] === 'student' || segments[0] === 'attendance';
 
     if (!currentUser) {
       if (!inAuthGroup) {
@@ -326,6 +327,7 @@ const AppShell = () => {
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="student" />
+            <Stack.Screen name="attendance" />
           </Stack>
         </View>
 

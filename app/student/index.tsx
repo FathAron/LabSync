@@ -59,6 +59,10 @@ const getTodayIso = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
 
+// Pertahankan state filter kalender di level modul agar tidak reset saat navigasi ke /student/attendance dan kembali
+let persistedSelectedDate: string | null = null;
+let persistedDateFilterActive = false;
+
 const SessionsScreen = () => {
   const router = useRouter();
 
@@ -88,8 +92,12 @@ const SessionsScreen = () => {
   const lastHandledSessionId = useRef<string | null>(null);
 
   // Weekly calendar navigation state
-  const [selectedDate, setSelectedDate] = useState<string>(getTodayIso);
-  const [dateFilterActive, setDateFilterActive] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(
+    () => persistedSelectedDate ?? getTodayIso()
+  );
+  const [dateFilterActive, setDateFilterActive] = useState<boolean>(
+    () => persistedDateFilterActive
+  );
 
   // Section collapse state
   const [activeExpanded, setActiveExpanded] = useState(true);
@@ -169,9 +177,12 @@ const SessionsScreen = () => {
       return;
     }
 
-    // Membuka modal presensi otomatis
+    // Arahkan ke layar presensi terdedikasi dengan validasi GPS & radius
     setTimeout(() => {
-      setSelectedSessionId(targetSession.id);
+      router.push({
+        pathname: '/attendance',
+        params: { sessionId: String(targetSession.id) },
+      });
     }, 0);
   }, [
     notificationSessionId,
@@ -204,7 +215,7 @@ const SessionsScreen = () => {
 
     // Arahkan ke layar presensi terdedikasi dengan validasi GPS & radius
     router.push({
-      pathname: '/student/attendance',
+      pathname: '/attendance',
       params: { sessionId: String(session.id) },
     });
   };
@@ -246,12 +257,17 @@ const SessionsScreen = () => {
   }, [mySessions]);
 
   const handleSelectDate = (date: string) => {
+    persistedSelectedDate = date;
+    persistedDateFilterActive = true;
     setSelectedDate(date);
     setDateFilterActive(true);
   };
 
   const handleResetDate = () => {
-    setSelectedDate(getTodayIso());
+    const today = getTodayIso();
+    persistedSelectedDate = today;
+    persistedDateFilterActive = false;
+    setSelectedDate(today);
     setDateFilterActive(false);
   };
 

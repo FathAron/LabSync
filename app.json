@@ -1,9 +1,7 @@
-
 {
   "expo": {
     "name": "LabSync",
     "slug": "labsync",
-    "owner": "adeliars",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -53,7 +51,7 @@
         }
       },
       "eas": {
-        "projectId": "d9ece977-7f2d-4755-a00f-1a2ba7b464e4"
+        "projectId": "c647c146-8ddb-4ff0-ab0f-2dcc52653274"
       }
     }
   }
